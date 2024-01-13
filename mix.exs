@@ -8,7 +8,18 @@ defmodule Ollama.MixProject do
       elixir: "~> 1.15",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      docs: [
+        main: "Ollama"
+      ],
+      package: [
+        name: "ollama",
+        files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
+        licenses: ["Apache-2.0"],
+        links: %{
+          "GitHub" => "https://github.com/lebrunel/ollama"
+        }
+      ]
     ]
   end
 

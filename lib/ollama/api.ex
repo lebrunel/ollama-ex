@@ -2,8 +2,8 @@ defmodule Ollama.API do
   @moduledoc """
   Client module for interacting with the Ollama API.
 
-  Currently supporting all Ollama API endpoints except push models (`/api/push`),
-  which will coom soon in the future release.
+  Currently supporting all Ollama API endpoints except pushing models (`/api/push`),
+  which is coming soon.
 
   ## Usage
 
