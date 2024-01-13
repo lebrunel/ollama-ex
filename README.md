@@ -1,8 +1,8 @@
 # Ollama
 
 ![Hex.pm](https://img.shields.io/hexpm/v/ollama?color=informational)
-![License](https://img.shields.io/github/license/lebrunel/ollama?color=informational)
-![Build Status](https://img.shields.io/github/actions/workflow/status/lebrunel/ollama/elixir.yml?branch=main)
+![License](https://img.shields.io/github/license/lebrunel-ex/ollama?color=informational)
+![Build Status](https://img.shields.io/github/actions/workflow/status/lebrunel/ollama-ex/elixir.yml?branch=main)
 
 [Ollama](https://ollama.ai) is a nifty little tool for running large language models locally, and this is a nifty little library for working with Ollama in Elixir.
 
