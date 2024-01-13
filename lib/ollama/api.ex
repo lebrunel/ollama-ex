@@ -166,7 +166,25 @@ defmodule Ollama.API do
   end
 
   @doc """
-  TODO Creates a model with a given name and file.
+  Creates a model using the given name and model file. Optionally
+  streamable.
+
+  Any dependent blobs reference in the modelfile, such as `FROM` and `ADAPTER`
+  instructions, must exist first. See `check_blob/2` and `create_blob/2`.
+
+  ## Options
+
+  The following options are accepted:
+
+  - `:stream` - A callback to handle streaming response chunks.
+
+  ## Example
+
+      iex> modelfile = "FROM llama2\\nSYSTEM \\"You are mario from Super Mario Bros.\\""
+      iex> Ollama.API.create_model(api, "mario", modelfile, stream: fn data ->
+      ...>   IO.inspect(data) # %{"status" => "reading model metadata"}
+      ...> end)
+      {:ok, ""}
   """
   @spec create_model(t(), model(), String.t(), keyword()) :: response()
   def create_model(%__MODULE__{} = api, model, modelfile, opts \\ [])
