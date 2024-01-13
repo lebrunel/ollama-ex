@@ -1,7 +1,6 @@
 defmodule Ollama.APITest do
   use ExUnit.Case
   alias Ollama.Mock
-  doctest Ollama.API
 
   describe "completion/4" do
     test "generates a response for a given prompt" do

@@ -1,18 +1,7 @@
 defmodule Ollama do
   @moduledoc """
-  Documentation for `Ollama`.
-  """
+  A library for working with [Ollama](https://ollama.ai) in Elixir.
 
-  @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Ollama.hello()
-      :world
 
   """
-  def hello do
-    :world
-  end
 end
