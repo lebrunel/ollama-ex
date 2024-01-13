@@ -28,4 +28,4 @@ end
 
 This package is open source and released under the [Apache-2 License](https://github.com/lebrunel/ollama/blob/master/LICENSE).
 
-© Copyright 2023 [Push Code Ltd](https://www.pushcode.com/).
+© Copyright 2024 [Push Code Ltd](https://www.pushcode.com/).
