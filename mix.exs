@@ -4,6 +4,9 @@ defmodule Ollama.MixProject do
   def project do
     [
       app: :ollama,
+      name: "Ollama",
+      description: "A nifty little library for working with Ollama in Elixir.",
+      source_url: "https://github.com/lebrunel/ollama-ex",
       version: "0.1.0",
       elixir: "~> 1.13",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -17,7 +20,7 @@ defmodule Ollama.MixProject do
         files: ~w(lib .formatter.exs mix.exs README.md LICENSE),
         licenses: ["Apache-2.0"],
         links: %{
-          "GitHub" => "https://github.com/lebrunel/ollama"
+          "GitHub" => "https://github.com/lebrunel/ollama-ex"
         }
       ]
     ]
