@@ -1,5 +1,7 @@
 defmodule Ollama do
   @moduledoc """
+  ![License](https://img.shields.io/github/license/lebrunel/ollama-ex?color=informational)
+
   [Ollama](https://ollama.ai) is a nifty little tool for running large language
   models locally, and this is a nifty little library for working with Ollama in
   Elixir.
