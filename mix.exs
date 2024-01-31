@@ -38,6 +38,7 @@ defmodule Ollama.MixProject do
     [
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:jason, "~> 1.4"},
+      {:nimble_options, "~> 1.1"},
       {:plug, "~> 1.15"},
       {:req, "~> 0.4"},
     ]

@@ -5,7 +5,10 @@ defmodule Ollama.APITest do
   describe "completion/4" do
     test "generates a response for a given prompt" do
       mock = Ollama.API.mock(& Mock.respond(&1, :completion))
-      assert {:ok, res} = Ollama.API.completion(mock, "llama2", "Why is the sky blue?")
+      assert {:ok, res} = Ollama.API.completion(mock, [
+        model: "llama2",
+        prompt: "Why is the sky blue?",
+      ])
       assert res["done"]
       assert res["model"] == "llama2"
       assert is_binary(res["response"])
@@ -14,9 +17,12 @@ defmodule Ollama.APITest do
     test "streams a response for a given prompt" do
       {:ok, pid} = Agent.start_link(fn -> [] end)
       mock = Ollama.API.mock(& Mock.stream(&1, :completion))
-      assert {:ok, ""} = Ollama.API.completion(mock, "llama2", "Why is the sky blue?", stream: fn data ->
-        Agent.update(pid, fn col -> [data | col] end)
-      end)
+      assert {:ok, task} = Ollama.API.completion(mock, [
+        model: "llama2",
+        prompt: "Why is the sky blue?",
+        stream: & Agent.update(pid, fn col -> [&1 | col] end),
+      ])
+      Task.await(task)
       res = Agent.get(pid, fn col -> col end)
       assert is_list(res)
       assert List.last(res) |> String.match?(~r/"done": true/)
@@ -25,15 +31,21 @@ defmodule Ollama.APITest do
 
     test "returns error when model not found" do
       mock = Ollama.API.mock(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.API.completion(mock, "llama2", "Why is the sky blue?")
+      assert {:error, {:http_error, :not_found}} = Ollama.API.completion(mock, [
+        model: "llama2",
+        prompt: "Why is the sky blue?",
+      ])
     end
   end
 
   describe "chat/4" do
     test "generates a response for a given prompt" do
       mock = Ollama.API.mock(& Mock.respond(&1, :chat))
-      assert {:ok, res} = Ollama.API.chat(mock, "llama2", [
-        %{role: "user", content: "Why is the sky blue?"}
+      assert {:ok, res} = Ollama.API.chat(mock, [
+        model: "llama2",
+        messages: [
+          %{role: "user", content: "Why is the sky blue?"}
+        ],
       ])
       assert res["done"]
       assert res["model"] == "llama2"
@@ -43,11 +55,14 @@ defmodule Ollama.APITest do
     test "streams a response for a given prompt" do
       {:ok, pid} = Agent.start_link(fn -> [] end)
       mock = Ollama.API.mock(& Mock.stream(&1, :chat))
-      assert {:ok, ""} = Ollama.API.chat(mock, "llama2", [
-        %{role: "user", content: "Why is the sky blue?"}
-      ], stream: fn data ->
-        Agent.update(pid, fn col -> [data | col] end)
-      end)
+      assert {:ok, task} = Ollama.API.chat(mock, [
+        model: "llama2",
+        messages: [
+          %{role: "user", content: "Why is the sky blue?"}
+        ],
+        stream: & Agent.update(pid, fn col -> [&1 | col] end),
+      ])
+      Task.await(task)
       res = Agent.get(pid, fn col -> col end)
       assert is_list(res)
       assert List.last(res) |> String.match?(~r/"done": true/)
@@ -56,8 +71,11 @@ defmodule Ollama.APITest do
 
     test "returns error when model not found" do
       mock = Ollama.API.mock(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.API.chat(mock, "llama2", [
-        %{role: "user", content: "Why is the sky blue?"}
+      assert {:error, {:http_error, :not_found}} = Ollama.API.chat(mock, [
+        model: "llama2",
+        messages: [
+          %{role: "user", content: "Why is the sky blue?"}
+        ],
       ])
     end
   end
@@ -66,7 +84,10 @@ defmodule Ollama.APITest do
     test "creates a model from the params" do
       modelfile = "FROM elena:latest\nSYSTEM \"You are mario from Super Mario Bros.\""
       mock = Ollama.API.mock(& Mock.respond(&1, :create_model))
-      assert {:ok, res} = Ollama.API.create_model(mock, "mario", modelfile)
+      assert {:ok, res} = Ollama.API.create_model(mock, [
+        name: "mario",
+        modelfile: modelfile,
+      ])
       assert res["status"] == "success"
     end
 
@@ -74,9 +95,12 @@ defmodule Ollama.APITest do
       {:ok, pid} = Agent.start_link(fn -> [] end)
       modelfile = "FROM elena:latest\nSYSTEM \"You are mario from Super Mario Bros.\""
       mock = Ollama.API.mock(& Mock.stream(&1, :create_model))
-      assert {:ok, ""} = Ollama.API.create_model(mock, "mario", modelfile, stream: fn data ->
-        Agent.update(pid, fn col -> [data | col] end)
-      end)
+      assert {:ok, task} = Ollama.API.create_model(mock, [
+        name: "mario",
+        modelfile: modelfile,
+        stream: & Agent.update(pid, fn col -> [&1 | col] end),
+      ])
+      Task.await(task)
       res = Agent.get(pid, fn col -> col end)
       assert is_list(res)
       assert List.last(res) |> String.match?(~r/"status": "success"/)
@@ -101,7 +125,7 @@ defmodule Ollama.APITest do
   describe "show_model/2" do
     test "shows information about a model" do
       mock = Ollama.API.mock(& Mock.respond(&1, :show_model))
-      assert {:ok, model} = Ollama.API.show_model(mock, "llama2")
+      assert {:ok, model} = Ollama.API.show_model(mock, name: "llama2")
       assert is_binary(model["modelfile"])
       assert is_binary(model["parameters"])
       assert is_binary(model["template"])
@@ -110,47 +134,55 @@ defmodule Ollama.APITest do
 
     test "returns error when model not found" do
       mock = Ollama.API.mock(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.API.show_model(mock, "llama2")
+      assert {:error, {:http_error, :not_found}} = Ollama.API.show_model(mock, name: "llama2")
     end
   end
 
   describe "copy_model/3" do
     test "shows true if copied" do
       mock = Ollama.API.mock(& Mock.respond(&1, 200))
-      assert {:ok, true} = Ollama.API.copy_model(mock, "llama2", "llama2-copy")
+      assert {:ok, true} = Ollama.API.copy_model(mock, [
+        source: "llama2",
+        destination: "llama2-copy",
+      ])
     end
 
     test "shows false if model not found" do
       mock = Ollama.API.mock(& Mock.respond(&1, 404))
-      assert {:ok, false} = Ollama.API.copy_model(mock, "llama2", "llama2-copy")
+      assert {:ok, false} = Ollama.API.copy_model(mock, [
+        source: "llama2",
+        destination: "llama2-copy",
+      ])
     end
   end
 
   describe "delete_model/2" do
     test "shows true if copied" do
       mock = Ollama.API.mock(& Mock.respond(&1, 200))
-      assert {:ok, true} = Ollama.API.delete_model(mock, "llama2")
+      assert {:ok, true} = Ollama.API.delete_model(mock, name: "llama2")
     end
 
     test "shows false if model not found" do
       mock = Ollama.API.mock(& Mock.respond(&1, 404))
-      assert {:ok, false} = Ollama.API.delete_model(mock, "llama2")
+      assert {:ok, false} = Ollama.API.delete_model(mock, name: "llama2")
     end
   end
 
   describe "pull_model/3" do
     test "pulls the given model" do
       mock = Ollama.API.mock(& Mock.respond(&1, :pull_model))
-      assert {:ok, res} = Ollama.API.pull_model(mock, "llama2")
+      assert {:ok, res} = Ollama.API.pull_model(mock, name: "llama2")
       assert res["status"] == "success"
     end
 
     test "pulls the given model and streams the response" do
       {:ok, pid} = Agent.start_link(fn -> [] end)
       mock = Ollama.API.mock(& Mock.stream(&1, :pull_model))
-      assert {:ok, ""} = Ollama.API.pull_model(mock, "llama2", stream: fn data ->
-        Agent.update(pid, fn col -> [data | col] end)
-      end)
+      assert {:ok, task} = Ollama.API.pull_model(mock, [
+        name: "llama2",
+        stream: & Agent.update(pid, fn col -> [&1 | col] end),
+      ])
+      Task.await(task)
       res = Agent.get(pid, fn col -> col end)
       assert is_list(res)
       assert List.last(res) |> String.match?(~r/"status": "success"/)
@@ -185,14 +217,20 @@ defmodule Ollama.APITest do
   describe "embeddings/4" do
     test "generates an embedding for a given prompt" do
       mock = Ollama.API.mock(& Mock.respond(&1, :embeddings))
-      assert {:ok, res} = Ollama.API.embeddings(mock, "llama2", "Why is the sky blue?")
+      assert {:ok, res} = Ollama.API.embeddings(mock, [
+        model: "llama2",
+        prompt: "Why is the sky blue?",
+      ])
       assert is_list(res["embedding"])
       assert length(res["embedding"]) == 10
     end
 
     test "returns error when model not found" do
       mock = Ollama.API.mock(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.API.embeddings(mock, "llama2", "Why is the sky blue?")
+      assert {:error, {:http_error, :not_found}} = Ollama.API.embeddings(mock, [
+        model: "llama2",
+        prompt: "Why is the sky blue?",
+      ])
     end
   end
 
