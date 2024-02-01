@@ -117,7 +117,7 @@ defmodule Ollama.API do
       iex> api = Ollama.API.new("https://ollama.service.ai:11434")
       %Ollama.API{}
   """
-  @spec new(Req.url() | module() | fun()) :: t()
+  @spec new(Req.url() | Req.Request.t()) :: t()
   def new(url \\ "http://localhost:11434/api")
 
   def new(url) when is_binary(url),
@@ -132,7 +132,7 @@ defmodule Ollama.API do
   @doc false
   @spec mock(module() | fun()) :: t()
   def mock(plug) when is_atom(plug) or is_function(plug, 1),
-    do: struct(__MODULE__, req: Req.new(plug: plug))
+    do: new(Req.new(plug: plug))
 
   @doc """
   Generates a completion for the given prompt using the specified model.
