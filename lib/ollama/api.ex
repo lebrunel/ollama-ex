@@ -8,15 +8,81 @@ defmodule Ollama.API do
   ## Usage
 
   Assuming you have Ollama running on localhost, and that you have installed a
-  model, immediately trying the `completion/4` and `chat/4` functions should be very
-  straightforward.
+  model, use `completion/2` or `chat/2` interract with the model.
 
       iex> api = Ollama.API.new
+
       iex> Ollama.API.completion(api, [
       ...>   model: "llama2",
       ...>   prompt: "Why is the sky blue?",
       ...> ])
-      {:ok, %{"response" => "The sky is blue because it is the color of the sky."}}
+      {:ok, %{"response" => "The sky is blue because it is the color of the sky.", ...}}
+
+      iex> Ollama.API.chat(api, [
+      ...>   model: "llama2",
+      ...>   messages: [
+      ...>     %{role: "system", content: "You are a helpful assistant."},
+      ...>     %{role: "user", content: "Why is the sky blue?"},
+      ...>     %{role: "assistant", content: "Due to rayleigh scattering."},
+      ...>     %{role: "user", content: "How is that different than mie scattering?"},
+      ...>   ],
+      ...> ])
+      {:ok, %{"message" => %{
+        "role" => "assistant",
+        "content" => "Mie scattering affects all wavelengths similarly, while Rayleigh favors shorter ones."
+      }, ...}}
+
+  ## Streaming
+
+  By default, all enpoints are called with streaming disabled, blocking until
+  the HTTP request completes and the response body is returned. For endpoints
+  where streaming is supported, the `:stream` option can be set to `true` or a
+  `t:pid/0`. When streaming is enabled, the function returns a `t:Task.t/0`,
+  which asynchronously sends messages back to either the calling process, or the
+  process associated with the given `t:pid/0`.
+
+  Messages will be sent in the following format, allowing the recieving process
+  to pattern match against the pid of the async task if known:
+
+      {request_pid, {:data, data}}
+
+  The data is a map from the Ollama JSON message. See
+  [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md).
+
+  The following example show's how a LiveView process may by constructed to both
+  create the streaming request and recieve the streaming messages.
+
+      defmodule Ollama.ChatLive do
+        use Phoenix.LiveView
+
+        # When the client invokes the "prompt" event, create a streaming request
+        # and optionally store the request task into the assigns
+        def handle_event("prompt", %{"message" => prompt}, socket) do
+          api = Ollama.API.new()
+          {:ok, task} = Ollama.API.completion(api, [
+            model: "llama2",
+            prompt: prompt,
+            stream: true,
+          ])
+
+          {:noreply, assign(socket, current_request: task)}
+        end
+
+        # The request task streams messages back to the LiveView process
+        def handle_info({_request_pid, {:data, _data}} = message, socket) do
+          pid = socket.assigns.current_request.pid
+          case message do
+            {^pid, {:data, %{"done" => false} = data}} ->
+              # handle each streaming chunk
+
+            {^pid, {:data, %{"done" => true} = data}} ->
+              # handle the final streaming chunk
+
+            {_pid, _data} ->
+              # this message was not expected!
+          end
+        end
+      end
   """
   alias Ollama.Blob
   defstruct [:req]
@@ -25,9 +91,6 @@ defmodule Ollama.API do
   @type t() :: %__MODULE__{
     req: Req.Request.t()
   }
-
-  @typedoc "Model name, in the format `<model name>:<tag>`"
-  @type model() :: String.t()
 
   @typedoc """
   Chat message
@@ -39,9 +102,6 @@ defmodule Ollama.API do
   - `images` - *(optional)* List of Base64 encoded images (for multimodal models only).
   """
   @type message() :: map()
-
-  @typedoc "Stream handler callback function"
-  @type handle_stream() :: (map() -> nil)
 
   @typedoc "API function response"
   @type response() :: {:ok, Task.t() | map() | boolean()} | {:error, term()}
@@ -92,26 +152,23 @@ defmodule Ollama.API do
   - `:system` - System prompt, overriding the model default.
   - `:template` - Prompt template, overriding the model default.
   - `:context` - The context parameter returned from a previous `f:completion/4` call (enabling short conversational memory).
-  - `:stream` - A callback to handle streaming response chunks.
+  - `:stream` - Defaults to false. See section on streaming.
 
   ## Examples
 
-      # Passing a callback to the :stream option initiates a streaming request.
-      iex> Ollama.API.completion(api, [
-      ...>   model: "llama2",
-      ...>   prompt: "Why is the sky blue?",
-      ...>   stream: fn data ->
-      ...>     IO.inspect(data) # %{"response" => "The"}
-      ...>   end,
-      ...> ])
-      {:ok, %Task{}}
-
-      # Without the :stream option initiates a standard request
       iex> Ollama.API.completion(api, [
       ...>   model: "llama2",
       ...>   prompt: "Why is the sky blue?",
       ...> ])
       {:ok, %{"response": "The sky is blue because it is the color of the sky.", ...}}
+
+      # Passing true to the :stream option initiates an async streaming request.
+      iex> Ollama.API.completion(api, [
+      ...>   model: "llama2",
+      ...>   prompt: "Why is the sky blue?",
+      ...>   stream: true,
+      ...> ])
+      {:ok, %Task{}}
   """
   @spec completion(t(), keyword()) :: response()
   def completion(%__MODULE__{} = api, params) when is_list(params) do
@@ -123,17 +180,15 @@ defmodule Ollama.API do
       system: [type: :string],
       template: [type: :string],
       context: [type: {:list, {:or, [:integer, :float]}}],
+      stream: [type: {:or, [:boolean, :pid]}, default: false],
     ]
-    {on_chunk, params} = Keyword.pop(params, :stream, nil)
     with {:ok, params} <- NimbleOptions.validate(params, schema) do
-      api
-      |> req(:post, "/generate", json: Enum.into(params, %{}), into: on_chunk)
-      |> res()
+      req(api, :post, "/generate", json: Enum.into(params, %{})) |> res()
     end
   end
 
   @deprecated "Use Ollama.API.completion/2"
-  @spec completion(t(), model(), String.t(), keyword()) :: response()
+  @spec completion(t(), String.t(), String.t(), keyword()) :: response()
   def completion(%__MODULE__{} = api, model, prompt, opts \\ [])
     when is_binary(model) and is_binary(prompt),
     do: completion(api, [{:model, model}, {:prompt, prompt} | opts])
@@ -153,7 +208,7 @@ defmodule Ollama.API do
 
   - `:options` - Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values)
   - `:template` - Prompt template, overriding the model default
-  - `:stream` - A callback to handle streaming response chunks.
+  - `:stream` - Defaults to false. See section on streaming.
 
   ## Message structure
 
@@ -172,17 +227,6 @@ defmodule Ollama.API do
       ...>   %{role: "user", content: "How is that different than mie scattering?"},
       ...> ]
 
-      # Passing a callback to the :stream option initiates a streaming request.
-      iex> Ollama.API.chat(api, [
-      ...>   model: "llama2",
-      ...>   messages: messages,
-      ...>   stream: fn data ->
-      ...>     IO.inspect(data) # %{"message" => %{"role" => "assistant", "content" => "Mie"}}
-      ...>   end,
-      ...> ])
-      {:ok, Task{}}
-
-      # Without the :stream option initiates a standard request
       iex> Ollama.API.chat(api, [
       ...>   model: "llama2",
       ...>   messages: messages,
@@ -191,6 +235,14 @@ defmodule Ollama.API do
         "role" => "assistant",
         "content" => "Mie scattering affects all wavelengths similarly, while Rayleigh favors shorter ones."
       }, ...}}
+
+      # Passing true to the :stream option initiates an async streaming request.
+      iex> Ollama.API.chat(api, [
+      ...>   model: "llama2",
+      ...>   messages: messages,
+      ...>   stream: true,
+      ...> ])
+      {:ok, Task{}}
   """
   @spec chat(t(), keyword()) :: response()
   def chat(%__MODULE__{} = api, params) when is_list(params) do
@@ -206,17 +258,15 @@ defmodule Ollama.API do
       ],
       options: [type: {:map, {:or, [:atom, :string]}, :any}],
       template: [type: :string],
+      stream: [type: {:or, [:boolean, :pid]}, default: false],
     ]
-    {on_chunk, params} = Keyword.pop(params, :stream, nil)
     with {:ok, params} <- NimbleOptions.validate(params, schema) do
-      api
-      |> req(:post, "/chat", json: Enum.into(params, %{}), into: on_chunk)
-      |> res()
+      req(api, :post, "/chat", json: Enum.into(params, %{})) |> res()
     end
   end
 
   @deprecated "Use Ollama.API.chat/2"
-  @spec chat(t(), model(), list(message()), keyword()) :: response()
+  @spec chat(t(), String.t(), list(message()), keyword()) :: response()
   def chat(%__MODULE__{} = api, model, messages, opts \\ [])
     when is_binary(model) and is_list(messages),
     do: chat(api, [{:model, model}, {:messages, messages} | opts])
@@ -237,7 +287,7 @@ defmodule Ollama.API do
 
   Accepted options:
 
-  - `:stream` - A callback to handle streaming response chunks.
+  - `:stream` - Defaults to false. See section on streaming.
 
   ## Example
 
@@ -245,9 +295,7 @@ defmodule Ollama.API do
       iex> Ollama.API.create_model(api, [
       ...>   name: "mario",
       ...>   modelfile: modelfile,
-      ...>   stream: fn data ->
-      ...>     IO.inspect(data) # %{"status" => "reading model metadata"}
-      ...>   end,
+      ...>   stream: true,
       ...> ])
       {:ok, Task{}}
   """
@@ -256,17 +304,15 @@ defmodule Ollama.API do
     schema = [
       name: [type: :string, required: true],
       modelfile: [type: :string, required: true],
+      stream: [type: {:or, [:boolean, :pid]}, default: false],
     ]
-    {on_chunk, params} = Keyword.pop(params, :stream, nil)
     with {:ok, params} <- NimbleOptions.validate(params, schema) do
-      api
-      |> req(:post, "/create", json: Enum.into(params, %{}), into: on_chunk)
-      |> res()
+      req(api, :post, "/create", json: Enum.into(params, %{})) |> res()
     end
   end
 
   @deprecated "Use Ollama.API.create_model/2"
-  @spec create_model(t(), model(), String.t(), keyword()) :: response()
+  @spec create_model(t(), String.t(), String.t(), keyword()) :: response()
   def create_model(%__MODULE__{} = api, model, modelfile, opts \\ [])
     when is_binary(model) and is_binary(modelfile),
     do: create_model(api, [{:name, model}, {:modelfile, modelfile} | opts])
@@ -283,7 +329,8 @@ defmodule Ollama.API do
       ]}}
   """
   @spec list_models(t()) :: response()
-  def list_models(%__MODULE__{} = api), do: req(api, :get, "/tags") |> res()
+  def list_models(%__MODULE__{} = api),
+    do: req(api, :get, "/tags") |> res()
 
   @doc """
   Shows all information for a specific model.
@@ -316,9 +363,7 @@ defmodule Ollama.API do
       name: [type: :string, required: true]
     ]
     with {:ok, params} <- NimbleOptions.validate(params, schema) do
-      api
-      |> req(:post, "/show", json: Enum.into(params, %{}))
-      |> res()
+      req(api, :post, "/show", json: Enum.into(params, %{})) |> res()
     end
   end
 
@@ -347,14 +392,12 @@ defmodule Ollama.API do
       destination: [type: :string, required: true],
     ]
     with {:ok, params} <- NimbleOptions.validate(params, schema) do
-      api
-      |> req(:post, "/copy", json: Enum.into(params, %{}))
-      |> res_bool()
+      req(api, :post, "/copy", json: Enum.into(params, %{})) |> res_bool()
     end
   end
 
   @deprecated "Use Ollama.API.copy_model/2"
-  @spec copy_model(t(), model(), model()) :: response()
+  @spec copy_model(t(), String.t(), String.t()) :: response()
   def copy_model(%__MODULE__{} = api, from, to)
     when is_binary(from) and is_binary(to),
     do: copy_model(api, source: from, destination: to)
@@ -379,9 +422,7 @@ defmodule Ollama.API do
       name: [type: :string, required: true]
     ]
     with {:ok, params} <- NimbleOptions.validate(params, schema) do
-      api
-      |> req(:delete, "/delete", json: Enum.into(params, %{}))
-      |> res_bool()
+      req(api, :delete, "/delete", json: Enum.into(params, %{})) |> res_bool()
     end
   end
 
@@ -396,7 +437,7 @@ defmodule Ollama.API do
 
   The following options are accepted:
 
-  - `:stream` - A callback to handle streaming response chunks.
+  - `:stream` - Defaults to false. See section on streaming.
 
   ## Example
 
@@ -408,13 +449,11 @@ defmodule Ollama.API do
   @spec pull_model(t(), keyword()) :: response()
   def pull_model(%__MODULE__{} = api, params) when is_list(params) do
     schema = [
-      name: [type: :string, required: true]
+      name: [type: :string, required: true],
+      stream: [type: {:or, [:boolean, :pid]}, default: false],
     ]
-    {on_chunk, params} = Keyword.pop(params, :stream, nil)
     with {:ok, params} <- NimbleOptions.validate(params, schema) do
-      api
-      |> req(:post, "/pull", json: Enum.into(params, %{}), into: on_chunk)
-      |> res()
+      req(api, :post, "/pull", json: Enum.into(params, %{})) |> res()
     end
   end
 
@@ -422,7 +461,7 @@ defmodule Ollama.API do
     do: pull_model(api, model, [])
 
   @deprecated "Use Ollama.API.pull_model/2"
-  @spec pull_model(t(), model(), keyword()) :: response()
+  @spec pull_model(t(), String.t(), keyword()) :: response()
   def pull_model(%__MODULE__{} = api, model, opts) when is_binary(model),
     do: pull_model(api, [{:name, model} | opts])
 
@@ -484,7 +523,7 @@ defmodule Ollama.API do
   end
 
   @deprecated "Use Ollama.API.embeddings/2"
-  @spec embeddings(t(), model(), String.t(), keyword()) :: response()
+  @spec embeddings(t(), String.t(), String.t(), keyword()) :: response()
   def embeddings(%__MODULE__{} = api, model, prompt, opts \\ [])
     when is_binary(model) and is_binary(prompt),
     do: embeddings(api, [{:model, model}, {:prompt, prompt} | opts])
@@ -492,13 +531,23 @@ defmodule Ollama.API do
 
   # Builds the request from the given params
   @spec req(t(), atom(), Req.url(), keyword()) :: req_response()
-  defp req(%__MODULE__{} = api, method, url, opts \\ []) when method in [:get, :post, :delete, :head] do
+  defp req(%__MODULE__{} = api, method, url, opts \\ []) do
     opts = Keyword.merge(opts, method: method, url: url)
+    dest = case get_in(opts, [:json, :stream]) do
+      true -> self()
+      dest -> dest
+    end
+
     cond do
-      Keyword.get(opts, :into) |> is_function(1) ->
-        Task.async(Req, :request!, [api.req, Keyword.update!(opts, :into, &stream_to/1)])
+      is_pid(dest) ->
+        opts = opts
+        |> Keyword.update!(:json, & Map.put(&1, :stream, true))
+        |> Keyword.put(:into, stream_to(dest))
+
+        Task.async(Req, :request, [api.req, opts])
       Keyword.get(opts, :json) |> is_map() ->
-        Req.request(api.req, Keyword.update!(opts, :json, & Map.put(&1, "stream", false)))
+        opts = Keyword.update!(opts, :json, & Map.put(&1, :stream, false))
+        Req.request(api.req, opts)
       true ->
         Req.request(api.req, opts)
     end
@@ -525,14 +574,17 @@ defmodule Ollama.API do
   defp res_bool({:error, error}), do: {:error, error}
 
   # Returns a callback to handle streaming responses
-  @spec stream_to(handle_stream()) :: fun()
-  defp stream_to(cb) do
-    fn {:data, data}, {req, resp} ->
+  @spec stream_to(pid()) :: fun()
+  defp stream_to(pid) do
+    fn {:data, data}, acc ->
       case Jason.decode(data) do
-        {:ok, data} -> cb.(data)
-        {:error, _} -> cb.(data)
+        {:ok, data} ->
+          Process.send(pid, {self(), {:data, data}}, [])
+
+        {:error, _} ->
+          Process.send(pid, {self(), {:data, data}}, [])
       end
-      {:cont, {req, resp}}
+      {:cont, acc}
     end
   end
 

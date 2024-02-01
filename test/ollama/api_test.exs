@@ -1,6 +1,6 @@
 defmodule Ollama.APITest do
   use ExUnit.Case
-  alias Ollama.Mock
+  alias Ollama.{Mock, StreamCatcher}
 
   describe "completion/4" do
     test "generates a response for a given prompt" do
@@ -15,18 +15,18 @@ defmodule Ollama.APITest do
     end
 
     test "streams a response for a given prompt" do
-      {:ok, pid} = Agent.start_link(fn -> [] end)
+      {:ok, pid} = StreamCatcher.start_link()
       mock = Ollama.API.mock(& Mock.stream(&1, :completion))
       assert {:ok, task} = Ollama.API.completion(mock, [
-        model: "llama2",
+        model: "llama",
         prompt: "Why is the sky blue?",
-        stream: & Agent.update(pid, fn col -> [&1 | col] end),
+        stream: pid,
       ])
+
       Task.await(task)
-      res = Agent.get(pid, fn col -> col end)
+      res = StreamCatcher.get_state(pid)
       assert is_list(res)
-      assert List.last(res) |> String.match?(~r/"done": true/)
-      Agent.stop(pid)
+      assert List.last(res) |> Map.get("done")
     end
 
     test "returns error when model not found" do
@@ -53,20 +53,19 @@ defmodule Ollama.APITest do
     end
 
     test "streams a response for a given prompt" do
-      {:ok, pid} = Agent.start_link(fn -> [] end)
+      {:ok, pid} = StreamCatcher.start_link()
       mock = Ollama.API.mock(& Mock.stream(&1, :chat))
       assert {:ok, task} = Ollama.API.chat(mock, [
         model: "llama2",
         messages: [
           %{role: "user", content: "Why is the sky blue?"}
         ],
-        stream: & Agent.update(pid, fn col -> [&1 | col] end),
+        stream: pid,
       ])
       Task.await(task)
-      res = Agent.get(pid, fn col -> col end)
+      res = StreamCatcher.get_state(pid)
       assert is_list(res)
-      assert List.last(res) |> String.match?(~r/"done": true/)
-      Agent.stop(pid)
+      assert List.last(res) |> Map.get("done")
     end
 
     test "returns error when model not found" do
@@ -92,19 +91,18 @@ defmodule Ollama.APITest do
     end
 
     test "creates a model from the params and streams the response" do
-      {:ok, pid} = Agent.start_link(fn -> [] end)
+      {:ok, pid} = StreamCatcher.start_link()
       modelfile = "FROM elena:latest\nSYSTEM \"You are mario from Super Mario Bros.\""
       mock = Ollama.API.mock(& Mock.stream(&1, :create_model))
       assert {:ok, task} = Ollama.API.create_model(mock, [
         name: "mario",
         modelfile: modelfile,
-        stream: & Agent.update(pid, fn col -> [&1 | col] end),
+        stream: pid,
       ])
       Task.await(task)
-      res = Agent.get(pid, fn col -> col end)
+      res = StreamCatcher.get_state(pid)
       assert is_list(res)
-      assert List.last(res) |> String.match?(~r/"status": "success"/)
-      Agent.stop(pid)
+      assert List.last(res) |> Map.get("status") == "success"
     end
   end
 
@@ -176,17 +174,16 @@ defmodule Ollama.APITest do
     end
 
     test "pulls the given model and streams the response" do
-      {:ok, pid} = Agent.start_link(fn -> [] end)
+      {:ok, pid} = StreamCatcher.start_link()
       mock = Ollama.API.mock(& Mock.stream(&1, :pull_model))
       assert {:ok, task} = Ollama.API.pull_model(mock, [
         name: "llama2",
-        stream: & Agent.update(pid, fn col -> [&1 | col] end),
+        stream: pid,
       ])
       Task.await(task)
-      res = Agent.get(pid, fn col -> col end)
+      res = StreamCatcher.get_state(pid)
       assert is_list(res)
-      assert List.last(res) |> String.match?(~r/"status": "success"/)
-      Agent.stop(pid)
+      assert List.last(res) |> Map.get("status") == "success"
     end
   end
 

@@ -9,6 +9,7 @@
 ## Highlights
 
 - API client fully implementing the Ollama API - `Ollama.API`
+- Stream API responses to any Elixir process.
 - Server module implementing OpenAI compatible completion and chat endpoints,
 proxying through to Ollama - *COMING SOON*
 
@@ -19,7 +20,7 @@ The package can be installed by adding `ollama` to your list of dependencies in 
 ```elixir
 def deps do
   [
-    {:ollama, "~> 0.1"}
+    {:ollama, "~> 0.2"}
   ]
 end
 ```
