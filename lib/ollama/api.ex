@@ -66,6 +66,9 @@ defmodule Ollama.API do
   def new(%URI{} = url),
     do: struct(__MODULE__, req: Req.new(base_url: url))
 
+  def new(%Req.Request{} = req),
+    do: struct(__MODULE__, req: req)
+
   @doc false
   @spec mock(module() | fun()) :: t()
   def mock(plug) when is_atom(plug) or is_function(plug, 1),
