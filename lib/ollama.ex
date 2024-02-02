@@ -10,7 +10,7 @@ defmodule Ollama do
 
   ## Highlights
 
-  - API client fully implementing the Ollama API - `Ollama.API`
+  - API client fully implementing the Ollama API - see `Ollama.API`.
   - Stream API responses to any Elixir process.
   - OpenAI API to Ollama API proxy plug - *COMING SOON*
 
@@ -66,7 +66,7 @@ defmodule Ollama do
 
   ### 3. Stream response to any Elixir process
 
-  Both the completion and char endpoints support streaming. Passing the `:stream`
+  Both the completion and chat endpoints support streaming. Passing the `:stream`
   options as `true` will return a `t:Task.t/0` that streams messages back to the
   calling process. Alteratively, passing a `t:pid/0` will stream messages to that
   process.
