@@ -100,7 +100,7 @@ iex> receive do
 ```
 
 In most cases you will probably use `c:GenServer.handle_info/2`. See the
-[section on Streaming](`[m:Ollama.API](ttps://hexdocs.pm/ollama/Ollama.API.html)#module-streaming`) for more examples.
+[section on Streaming](https://hexdocs.pm/ollama/Ollama.API.html#module-streaming) for more examples.
 
 ## License
 
