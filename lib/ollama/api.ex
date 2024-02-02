@@ -152,7 +152,7 @@ defmodule Ollama.API do
   - `:system` - System prompt, overriding the model default.
   - `:template` - Prompt template, overriding the model default.
   - `:context` - The context parameter returned from a previous `f:completion/4` call (enabling short conversational memory).
-  - `:stream` - Defaults to false. See section on streaming.
+  - `:stream` - Defaults to false. See [section on streaming](#module-streaming).
 
   ## Examples
 
@@ -208,7 +208,7 @@ defmodule Ollama.API do
 
   - `:options` - Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values)
   - `:template` - Prompt template, overriding the model default
-  - `:stream` - Defaults to false. See section on streaming.
+  - `:stream` - Defaults to false. See [section on streaming](#module-streaming).
 
   ## Message structure
 
@@ -287,7 +287,7 @@ defmodule Ollama.API do
 
   Accepted options:
 
-  - `:stream` - Defaults to false. See section on streaming.
+  - `:stream` - Defaults to false. See [section on streaming](#module-streaming).
 
   ## Example
 
@@ -437,7 +437,7 @@ defmodule Ollama.API do
 
   The following options are accepted:
 
-  - `:stream` - Defaults to false. See section on streaming.
+  - `:stream` - Defaults to false. See [section on streaming](#module-streaming).
 
   ## Example
 

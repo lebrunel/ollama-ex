@@ -10,8 +10,7 @@
 
 - API client fully implementing the Ollama API - `Ollama.API`
 - Stream API responses to any Elixir process.
-- Server module implementing OpenAI compatible completion and chat endpoints,
-proxying through to Ollama - *COMING SOON*
+- OpenAI API to Ollama API proxy plug - *COMING SOON*
 
 ## Installation
 
@@ -24,6 +23,82 @@ def deps do
   ]
 end
 ```
+
+## Quickstart
+
+For more examples, refer to the [`Ollama.API`](https://hexdocs.pm/ollama/Ollama.API.html) documentation.
+
+### 1. Generate a completion
+
+```elixir
+iex> api = Ollama.API.new
+
+iex> Ollama.API.completion(api, [
+...>   model: "llama2",
+...>   prompt: "Why is the sky blue?",
+...> ])
+{:ok, %{"response" => "The sky is blue because it is the color of the sky.", ...}}
+```
+
+### 2. Generate the next message in a chat
+
+```elixir
+iex> api = Ollama.API.new
+iex> messages = [
+...>   %{role: "system", content: "You are a helpful assistant."},
+...>   %{role: "user", content: "Why is the sky blue?"},
+...>   %{role: "assistant", content: "Due to rayleigh scattering."},
+...>   %{role: "user", content: "How is that different than mie scattering?"},
+...> ]
+
+iex> Ollama.API.chat(api, [
+...>   model: "llama2",
+...>   messages: messages,
+...> ])
+{:ok, %{"message" => %{
+  "role" => "assistant",
+  "content" => "Mie scattering affects all wavelengths similarly, while Rayleigh favors shorter ones."
+}, ...}}
+```
+
+### 3. Stream response to any Elixir process
+
+Both the completion and char endpoints support streaming. Passing the `:stream`
+options as `true` will return a `t:Task.t/0` that streams messages back to the
+calling process. Alteratively, passing a `t:pid/0` will stream messages to that
+process.
+
+```elixir
+iex> Ollama.API.completion(api, [
+...>   model: "llama2",
+...>   prompt: "Why is the sky blue?",
+...>   stream: true,
+...> ])
+{:ok, %Task{pid: current_message_pid}}
+
+iex> Ollama.API.chat(api, [
+...>   model: "llama2",
+...>   messages: messages,
+...>   stream: true,
+...> ])
+{:ok, %Task{pid: current_message_pid}}
+```
+
+You could manually create a `receive` block to handle messages.
+
+```elixir
+iex> receive do
+...>   {^current_message_pid, {:data, %{"done" => true} = data}} ->
+...>     # handle last message
+...>   {^current_message_pid, {:data, data}} ->
+...>     # handle message
+...>   {_pid, _data_} ->
+...>     # this message was not expected!
+...>  end
+```
+
+In most cases you will probably use `c:GenServer.handle_info/2`. See the
+[section on Streaming](`[m:Ollama.API](ttps://hexdocs.pm/ollama/Ollama.API.html)#module-streaming`) for more examples.
 
 ## License
 
