@@ -1,5 +1,7 @@
 # Ollama
 
+![Ollama-ex](https://raw.githubusercontent.com/lebrunel/ollama-ex/main/media/poster.webp)
+
 ![Hex.pm](https://img.shields.io/hexpm/v/ollama?color=informational)
 ![License](https://img.shields.io/github/license/lebrunel/ollama-ex?color=informational)
 ![Build Status](https://img.shields.io/github/actions/workflow/status/lebrunel/ollama-ex/elixir.yml?branch=main)

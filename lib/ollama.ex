@@ -1,5 +1,7 @@
 defmodule Ollama do
   @moduledoc """
+  ![Ollama-ex](https://raw.githubusercontent.com/lebrunel/ollama-ex/main/media/poster.webp)
+
   ![License](https://img.shields.io/github/license/lebrunel/ollama-ex?color=informational)
 
   [Ollama](https://ollama.ai) is a nifty little tool for running large language
