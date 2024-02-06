@@ -187,6 +187,27 @@ defmodule Ollama.APITest do
     end
   end
 
+  describe "push_model.2" do
+    test "pushes the given model" do
+      mock = Ollama.API.mock(& Mock.respond(&1, :push_model))
+      assert {:ok, res} = Ollama.API.push_model(mock, name: "mattw/pygmalion:latest")
+      assert res["status"] == "success"
+    end
+
+    test "pushes the given model and streams the response" do
+      {:ok, pid} = StreamCatcher.start_link()
+      mock = Ollama.API.mock(& Mock.stream(&1, :push_model))
+      assert {:ok, task} = Ollama.API.push_model(mock, [
+        name: "mattw/pygmalion:latest",
+        stream: pid,
+      ])
+      Task.await(task)
+      res = StreamCatcher.get_state(pid)
+      assert is_list(res)
+      assert List.last(res) |> Map.get("status") == "success"
+    end
+  end
+
   describe "check_blob/2" do
     test "returns true if a digest exists" do
       mock = Ollama.API.mock(& Mock.respond(&1, 200))

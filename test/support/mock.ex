@@ -95,6 +95,12 @@ defmodule Ollama.Mock do
     }
     """,
 
+    push_model: """
+    {
+      "status": "success"
+    }
+    """,
+
     embeddings: """
     {
       "embedding": [
@@ -187,6 +193,19 @@ defmodule Ollama.Mock do
       ~s({"status": "verifying sha256 digest"}),
       ~s({"status": "writing manifest"}),
       ~s({"status": "removing any unused layers"}),
+      ~s({"status": "success"}),
+    ],
+
+    push_model: [
+      ~s({ "status": "retrieving manifest" }),
+      """
+      {
+        "status": "starting upload",
+        "digest": "sha256:bc07c81de745696fdf5afca05e065818a8149fb0c77266fb584d9b2cba3711ab",
+        "total": 1928429856
+      }
+      """,
+      ~s({"status":"pushing manifest"}),
       ~s({"status": "success"}),
     ]
   }

@@ -520,10 +520,12 @@ defmodule Ollama.API do
 
   ## Example
 
-      iex> Ollama.API.pull_model(api, "llama2", stream: fn data ->
-      ...>   IO.inspect(data) # %{"status" => "pulling manifest"}
-      ...> end)
-      {:ok, ""}
+      iex> Ollama.API.pull_model(api, name: "llama2")
+      {:ok, %{"status" => "success"}}
+
+      # Passing true to the :stream option initiates an async streaming request.
+      iex> Ollama.API.pull_model(api, name: "llama2", stream: true)
+      {:ok, %Task{}}
   """
   @spec pull_model(t(), keyword()) :: response()
   def pull_model(%__MODULE__{} = api, params) when is_list(params) do
@@ -540,6 +542,44 @@ defmodule Ollama.API do
   @spec pull_model(t(), String.t(), keyword()) :: response()
   def pull_model(%__MODULE__{} = api, model, opts) when is_binary(model),
     do: pull_model(api, [{:name, model} | opts])
+
+
+  schema :push_model, [
+    name: [
+      type: :string,
+      required: true,
+      doc: "Name of the model to pull.",
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "See [section on streaming](#module-streaming).",
+    ],
+  ]
+
+  @doc """
+  Upload a model to a model library. Requires registering for
+  [ollama.ai](https://ollama.ai) and adding a public key first. Optionally streamable.
+
+  ## Options
+
+  #{doc(:push_model)}
+
+  ## Example
+
+      iex> Ollama.API.push_model(api, name: "mattw/pygmalion:latest")
+      {:ok, %{"status" => "success"}}
+
+      # Passing true to the :stream option initiates an async streaming request.
+      iex> Ollama.API.push_model(api, name: "mattw/pygmalion:latest", stream: true)
+      {:ok, %Task{}}
+  """
+  @spec push_model(t(), keyword()) :: response()
+  def push_model(%__MODULE__{} = api, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:push_model)) do
+      req(api, :post, "/push", json: Enum.into(params, %{})) |> res()
+    end
+  end
 
 
   @doc """
