@@ -219,7 +219,7 @@ defmodule Ollama.APITest do
       assert {:ok, false} = Ollama.API.check_blob(mock, "sha256:00000000")
     end
 
-    test "optionally recieves a raw blob over a digest" do
+    test "optionally receives a raw blob over a digest" do
       mock = Ollama.API.mock(& Mock.respond(&1, 404))
       assert {:ok, false} = Ollama.API.check_blob(mock, <<0,1,2,3>>)
     end

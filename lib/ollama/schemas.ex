@@ -32,7 +32,7 @@ defmodule Ollama.Schemas do
   end
 
   @doc """
-  Fetchs a schema by the given key.
+  Fetches a schema by the given key.
   """
   @spec schema(atom()) :: Macro.t()
   defmacro schema(key) do

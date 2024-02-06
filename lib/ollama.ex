@@ -68,7 +68,7 @@ defmodule Ollama do
 
   Both the completion and chat endpoints support streaming. Passing the `:stream`
   options as `true` will return a `t:Task.t/0` that streams messages back to the
-  calling process. Alteratively, passing a `t:pid/0` will stream messages to that
+  calling process. Alternatively, passing a `t:pid/0` will stream messages to that
   process.
 
   ```elixir

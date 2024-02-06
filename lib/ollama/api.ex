@@ -8,7 +8,7 @@ defmodule Ollama.API do
   ## Usage
 
   Assuming you have Ollama running on localhost, and that you have installed a
-  model, use `completion/2` or `chat/2` interract with the model.
+  model, use `completion/2` or `chat/2` interact with the model.
 
       iex> api = Ollama.API.new
 
@@ -34,14 +34,14 @@ defmodule Ollama.API do
 
   ## Streaming
 
-  By default, all enpoints are called with streaming disabled, blocking until
+  By default, all endpoints are called with streaming disabled, blocking until
   the HTTP request completes and the response body is returned. For endpoints
   where streaming is supported, the `:stream` option can be set to `true` or a
   `t:pid/0`. When streaming is enabled, the function returns a `t:Task.t/0`,
   which asynchronously sends messages back to either the calling process, or the
   process associated with the given `t:pid/0`.
 
-  Messages will be sent in the following format, allowing the recieving process
+  Messages will be sent in the following format, allowing the receiving process
   to pattern match against the pid of the async task if known:
 
       {request_pid, {:data, data}}
@@ -50,7 +50,7 @@ defmodule Ollama.API do
   [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md).
 
   The following example show's how a LiveView process may by constructed to both
-  create the streaming request and recieve the streaming messages.
+  create the streaming request and receive the streaming messages.
 
       defmodule Ollama.ChatLive do
         use Phoenix.LiveView
