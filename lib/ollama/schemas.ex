@@ -3,7 +3,7 @@ defmodule Ollama.Schemas do
 
   defmacro __using__(_) do
     quote do
-      Module.register_attribute(__MODULE__, :__schemas, accumulate: true)
+      Module.register_attribute(__MODULE__, :schemas, accumulate: true)
       import Ollama.Schemas
     end
   end
@@ -14,7 +14,7 @@ defmodule Ollama.Schemas do
   @spec doc(atom()) :: Macro.t()
   defmacro doc(key) do
     quote do
-      @__schemas
+      @schemas
       |> Keyword.get(unquote(key))
       |> NimbleOptions.docs()
       |> String.replace("\n\n", "\n")
@@ -27,7 +27,7 @@ defmodule Ollama.Schemas do
   @spec schema(atom(), NimbleOptions.schema()) :: Macro.t()
   defmacro schema(key, opts) do
     quote do
-      @__schemas {unquote(key), NimbleOptions.new!(unquote(opts))}
+      @schemas {unquote(key), NimbleOptions.new!(unquote(opts))}
     end
   end
 
@@ -37,7 +37,7 @@ defmodule Ollama.Schemas do
   @spec schema(atom()) :: Macro.t()
   defmacro schema(key) do
     quote do
-      Keyword.fetch!(@__schemas, unquote(key))
+      Keyword.fetch!(@schemas, unquote(key))
     end
   end
 

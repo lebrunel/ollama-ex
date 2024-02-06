@@ -22,7 +22,7 @@ defmodule Ollama do
   ```elixir
   def deps do
     [
-      {:ollama, "~> 0.2"}
+      {:ollama, "#{Keyword.fetch!(Mix.Project.config(), :version)}"}
     ]
   end
   ```
