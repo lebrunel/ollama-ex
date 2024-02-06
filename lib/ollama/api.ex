@@ -84,6 +84,7 @@ defmodule Ollama.API do
         end
       end
   """
+  use Ollama.Schemas
   alias Ollama.Blob
   defstruct [:req]
 
@@ -92,14 +93,30 @@ defmodule Ollama.API do
     req: Req.Request.t()
   }
 
+
+  schema :chat_message, [
+    role: [
+      type: :string,
+      required: true,
+      doc: "The role of the message, either `system`, `user` or `assistant`."
+    ],
+    content: [
+      type: :string,
+      required: true,
+      doc: "The content of the message.",
+    ],
+    images: [
+      type: {:list, :string},
+      doc: "*(optional)* List of Base64 encoded images (for multimodal models only).",
+    ]
+  ]
+
   @typedoc """
   Chat message
 
   A chat message is a `t:map/0` with the following fields:
 
-  - `role` - The role of the message, either `system`, `user` or `assistant`.
-  - `content` - The content of the message.
-  - `images` - *(optional)* List of Base64 encoded images (for multimodal models only).
+  #{doc(:chat_message)}
   """
   @type message() :: map()
 
@@ -107,6 +124,7 @@ defmodule Ollama.API do
   @type response() :: {:ok, Task.t() | map() | boolean()} | {:error, term()}
 
   @typep req_response() :: {:ok, Req.Response.t()} | {:error, term()} | Task.t()
+
 
   @doc """
   Creates a new API client with the provided URL. If no URL is given, it
@@ -134,64 +152,36 @@ defmodule Ollama.API do
   def mock(plug) when is_atom(plug) or is_function(plug, 1),
     do: new(Req.new(plug: plug))
 
-  @doc """
-  Generates a completion for the given prompt using the specified model.
-  Optionally streamable.
 
-  ## Options
-
-  Required options:
-
-  - `:model` - The ollama model name.
-  - `:prompt` - Prompt to generate a response for.
-
-  Accepted options::
-
-  - `:images` - A list of Base64 encoded images to be included with the prompt (for multimodal models only).
-  - `:options` - Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).
-  - `:system` - System prompt, overriding the model default.
-  - `:template` - Prompt template, overriding the model default.
-  - `:context` - The context parameter returned from a previous `f:completion/4` call (enabling short conversational memory).
-  - `:stream` - Defaults to false. See [section on streaming](#module-streaming).
-
-  ## Examples
-
-      iex> Ollama.API.completion(api, [
-      ...>   model: "llama2",
-      ...>   prompt: "Why is the sky blue?",
-      ...> ])
-      {:ok, %{"response": "The sky is blue because it is the color of the sky.", ...}}
-
-      # Passing true to the :stream option initiates an async streaming request.
-      iex> Ollama.API.completion(api, [
-      ...>   model: "llama2",
-      ...>   prompt: "Why is the sky blue?",
-      ...>   stream: true,
-      ...> ])
-      {:ok, %Task{}}
-  """
-  @spec completion(t(), keyword()) :: response()
-  def completion(%__MODULE__{} = api, params) when is_list(params) do
-    schema = [
-      model: [type: :string, required: true],
-      prompt: [type: :string, required: true],
-      images: [type: {:list, :string}],
-      options: [type: {:map, {:or, [:atom, :string]}, :any}],
-      system: [type: :string],
-      template: [type: :string],
-      context: [type: {:list, {:or, [:integer, :float]}}],
-      stream: [type: {:or, [:boolean, :pid]}, default: false],
-    ]
-    with {:ok, params} <- NimbleOptions.validate(params, schema) do
-      req(api, :post, "/generate", json: Enum.into(params, %{})) |> res()
-    end
-  end
-
-  @deprecated "Use Ollama.API.completion/2"
-  @spec completion(t(), String.t(), String.t(), keyword()) :: response()
-  def completion(%__MODULE__{} = api, model, prompt, opts \\ [])
-    when is_binary(model) and is_binary(prompt),
-    do: completion(api, [{:model, model}, {:prompt, prompt} | opts])
+  schema :chat, [
+    model: [
+      type: :string,
+      required: true,
+      doc: "The ollama model name.",
+    ],
+    messages: [
+      type: {:list, {:map, schema(:chat_message).schema}},
+      required: true,
+      doc: "List of messages - used to keep a chat memory.",
+    ],
+    template: [
+      type: :string,
+      doc: "Prompt template, overriding the model default.",
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "See [section on streaming](#module-streaming).",
+    ],
+    keep_alive: [
+      type: {:or, [:integer, :string]},
+      doc: "How long to keep the model loaded.",
+    ],
+    options: [
+      type: {:map, {:or, [:atom, :string]}, :any},
+      doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
+    ],
+  ]
 
   @doc """
   Generates the next message in a chat using the specified model. Optionally
@@ -199,24 +189,13 @@ defmodule Ollama.API do
 
   ## Options
 
-  Required options:
-
-  - `:model` - The ollama model name.
-  - `:messages` - List of messages - used to keep a chat memory.
-
-  Accepted options:
-
-  - `:options` - Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values)
-  - `:template` - Prompt template, overriding the model default
-  - `:stream` - Defaults to false. See [section on streaming](#module-streaming).
+  #{doc(:chat)}
 
   ## Message structure
 
   Each message is a map with the following fields:
 
-  - `role` - The role of the message, either `system`, `user` or `assistant`.
-  - `content` - The content of the message.
-  - `images` - *(optional)* List of Base64 encoded images (for multimodal models only).
+  #{doc(:chat_message)}
 
   ## Examples
 
@@ -246,30 +225,117 @@ defmodule Ollama.API do
   """
   @spec chat(t(), keyword()) :: response()
   def chat(%__MODULE__{} = api, params) when is_list(params) do
-    schema = [
-      model: [type: :string, required: true],
-      messages: [
-        type: {:list, {:map, [
-          role: [type: :string, required: true],
-          content: [type: :string, required: true],
-          images: [type: {:list, :string}]
-        ]}},
-        required: true
-      ],
-      options: [type: {:map, {:or, [:atom, :string]}, :any}],
-      template: [type: :string],
-      stream: [type: {:or, [:boolean, :pid]}, default: false],
-    ]
-    with {:ok, params} <- NimbleOptions.validate(params, schema) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:chat)) do
       req(api, :post, "/chat", json: Enum.into(params, %{})) |> res()
     end
   end
 
+  @doc false
   @deprecated "Use Ollama.API.chat/2"
   @spec chat(t(), String.t(), list(message()), keyword()) :: response()
   def chat(%__MODULE__{} = api, model, messages, opts \\ [])
     when is_binary(model) and is_list(messages),
     do: chat(api, [{:model, model}, {:messages, messages} | opts])
+
+
+  schema :completion, [
+    model: [
+      type: :string,
+      required: true,
+      doc: "The ollama model name.",
+    ],
+    prompt: [
+      type: :string,
+      required: true,
+      doc: "Prompt to generate a response for.",
+    ],
+    images: [
+      type: {:list, :string},
+      doc: "A list of Base64 encoded images to be included with the prompt (for multimodal models only).",
+    ],
+    system: [
+      type: :string,
+      doc: "System prompt, overriding the model default.",
+    ],
+    template: [
+      type: :string,
+      doc: "Prompt template, overriding the model default.",
+    ],
+    context: [
+      type: {:list, {:or, [:integer, :float]}},
+      doc: "The context parameter returned from a previous `f:completion/2` call (enabling short conversational memory).",
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "See [section on streaming](#module-streaming).",
+    ],
+    keep_alive: [
+      type: {:or, [:integer, :string]},
+      doc: "How long to keep the model loaded.",
+    ],
+    options: [
+      type: {:map, {:or, [:atom, :string]}, :any},
+      doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
+    ],
+  ]
+
+  @doc """
+  Generates a completion for the given prompt using the specified model.
+  Optionally streamable.
+
+  ## Options
+
+  #{doc(:completion)}
+
+  ## Examples
+
+      iex> Ollama.API.completion(api, [
+      ...>   model: "llama2",
+      ...>   prompt: "Why is the sky blue?",
+      ...> ])
+      {:ok, %{"response": "The sky is blue because it is the color of the sky.", ...}}
+
+      # Passing true to the :stream option initiates an async streaming request.
+      iex> Ollama.API.completion(api, [
+      ...>   model: "llama2",
+      ...>   prompt: "Why is the sky blue?",
+      ...>   stream: true,
+      ...> ])
+      {:ok, %Task{}}
+  """
+  @spec completion(t(), keyword()) :: response()
+  def completion(%__MODULE__{} = api, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:completion)) do
+      req(api, :post, "/generate", json: Enum.into(params, %{})) |> res()
+    end
+  end
+
+  @doc false
+  @deprecated "Use Ollama.API.completion/2"
+  @spec completion(t(), String.t(), String.t(), keyword()) :: response()
+  def completion(%__MODULE__{} = api, model, prompt, opts \\ [])
+    when is_binary(model) and is_binary(prompt),
+    do: completion(api, [{:model, model}, {:prompt, prompt} | opts])
+
+
+  schema :create_model, [
+    name: [
+      type: :string,
+      required: true,
+      doc: "Name of the model to create.",
+    ],
+    modelfile: [
+      type: :string,
+      required: true,
+      doc: "Contents of the Modelfile.",
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "See [section on streaming](#module-streaming).",
+    ],
+  ]
 
   @doc """
   Creates a model using the given name and model file. Optionally
@@ -280,14 +346,7 @@ defmodule Ollama.API do
 
   ## Options
 
-  Required options:
-
-  - `:name` - Name of the model to create.
-  - `:modelfile` - Contents of the Modelfile.
-
-  Accepted options:
-
-  - `:stream` - Defaults to false. See [section on streaming](#module-streaming).
+  #{doc(:create_model)}
 
   ## Example
 
@@ -301,21 +360,18 @@ defmodule Ollama.API do
   """
   @spec create_model(t(), keyword()) :: response()
   def create_model(%__MODULE__{} = api, params) when is_list(params) do
-    schema = [
-      name: [type: :string, required: true],
-      modelfile: [type: :string, required: true],
-      stream: [type: {:or, [:boolean, :pid]}, default: false],
-    ]
-    with {:ok, params} <- NimbleOptions.validate(params, schema) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:create_model)) do
       req(api, :post, "/create", json: Enum.into(params, %{})) |> res()
     end
   end
 
+  @doc false
   @deprecated "Use Ollama.API.create_model/2"
   @spec create_model(t(), String.t(), String.t(), keyword()) :: response()
   def create_model(%__MODULE__{} = api, model, modelfile, opts \\ [])
     when is_binary(model) and is_binary(modelfile),
     do: create_model(api, [{:name, model}, {:modelfile, modelfile} | opts])
+
 
   @doc """
   Lists all models that Ollama has available.
@@ -332,14 +388,21 @@ defmodule Ollama.API do
   def list_models(%__MODULE__{} = api),
     do: req(api, :get, "/tags") |> res()
 
+
+  schema :show_model, [
+    name: [
+      type: :string,
+      required: true,
+      doc: "Name of the model to show.",
+    ]
+  ]
+
   @doc """
   Shows all information for a specific model.
 
   ## Options
 
-  Required options:
-
-  - `:name` - Name of the model to create.
+  #{doc(:show_model)}
 
   ## Example
 
@@ -359,23 +422,30 @@ defmodule Ollama.API do
   """
   @spec show_model(t(), keyword()) :: response()
   def show_model(%__MODULE__{} = api, params) when is_list(params) do
-    schema = [
-      name: [type: :string, required: true]
-    ]
-    with {:ok, params} <- NimbleOptions.validate(params, schema) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:show_model)) do
       req(api, :post, "/show", json: Enum.into(params, %{})) |> res()
     end
   end
+
+  schema :copy_model, [
+    source: [
+      type: :string,
+      required: true,
+      doc: "Name of the model to copy from.",
+    ],
+    destination: [
+      type: :string,
+      required: true,
+      doc: "Name of the model to copy to.",
+    ],
+  ]
 
   @doc """
   Creates a model with another name from an existing model.
 
   ## Options
 
-  Required options:
-
-  - `:source` - Name of the model to copy from.
-  - `:destination` - Name of the model to copy to.
+  #{doc(:copy_model)}
 
   ## Example
 
@@ -387,29 +457,33 @@ defmodule Ollama.API do
   """
   @spec copy_model(t(), keyword()) :: response()
   def copy_model(%__MODULE__{} = api, params) when is_list(params) do
-    schema = [
-      source: [type: :string, required: true],
-      destination: [type: :string, required: true],
-    ]
-    with {:ok, params} <- NimbleOptions.validate(params, schema) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:copy_model)) do
       req(api, :post, "/copy", json: Enum.into(params, %{})) |> res_bool()
     end
   end
 
+  @doc false
   @deprecated "Use Ollama.API.copy_model/2"
   @spec copy_model(t(), String.t(), String.t()) :: response()
   def copy_model(%__MODULE__{} = api, from, to)
     when is_binary(from) and is_binary(to),
     do: copy_model(api, source: from, destination: to)
 
+
+  schema :delete_model, [
+    name: [
+      type: :string,
+      required: true,
+      doc: "Name of the model to delete.",
+    ]
+  ]
+
   @doc """
   Deletes a model and its data.
 
   ## Options
 
-  Required options:
-
-  - `:name` - Name of the model to delete.
+  #{doc(:copy_model)}
 
   ## Example
 
@@ -418,26 +492,31 @@ defmodule Ollama.API do
   """
   @spec delete_model(t(), keyword()) :: response()
   def delete_model(%__MODULE__{} = api, params) when is_list(params) do
-    schema = [
-      name: [type: :string, required: true]
-    ]
-    with {:ok, params} <- NimbleOptions.validate(params, schema) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:delete_model)) do
       req(api, :delete, "/delete", json: Enum.into(params, %{})) |> res_bool()
     end
   end
+
+
+  schema :pull_model, [
+    name: [
+      type: :string,
+      required: true,
+      doc: "Name of the model to pull.",
+    ],
+    stream: [
+      type: {:or, [:boolean, :pid]},
+      default: false,
+      doc: "See [section on streaming](#module-streaming).",
+    ],
+  ]
 
   @doc """
   Downloads a model from the ollama library. Optionally streamable.
 
   ## Options
 
-  Required options:
-
-  - `:name` - Name of the model to pull.
-
-  The following options are accepted:
-
-  - `:stream` - Defaults to false. See [section on streaming](#module-streaming).
+  #{doc(:pull_model)}
 
   ## Example
 
@@ -448,11 +527,7 @@ defmodule Ollama.API do
   """
   @spec pull_model(t(), keyword()) :: response()
   def pull_model(%__MODULE__{} = api, params) when is_list(params) do
-    schema = [
-      name: [type: :string, required: true],
-      stream: [type: {:or, [:boolean, :pid]}, default: false],
-    ]
-    with {:ok, params} <- NimbleOptions.validate(params, schema) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:pull_model)) do
       req(api, :post, "/pull", json: Enum.into(params, %{})) |> res()
     end
   end
@@ -460,10 +535,12 @@ defmodule Ollama.API do
   def pull_model(%__MODULE__{} = api, model) when is_binary(model),
     do: pull_model(api, model, [])
 
+  @doc false
   @deprecated "Use Ollama.API.pull_model/2"
   @spec pull_model(t(), String.t(), keyword()) :: response()
   def pull_model(%__MODULE__{} = api, model, opts) when is_binary(model),
     do: pull_model(api, [{:name, model} | opts])
+
 
   @doc """
   Checks a blob exists in ollama by its digest or binary data.
@@ -482,20 +559,47 @@ defmodule Ollama.API do
   def check_blob(%__MODULE__{} = api, blob) when is_binary(blob),
     do: check_blob(api, Blob.digest(blob))
 
+
   @doc """
   Creates a blob from its binary data.
 
   ## Example
 
-      iex> Ollama.API.create_blob(api, modelfile)
+      iex> Ollama.API.create_blob(api, data)
       {:ok, true}
   """
   @spec create_blob(t(), binary()) :: response()
   def create_blob(%__MODULE__{} = api, blob) when is_binary(blob),
     do: req(api, :post, "/blobs/#{Blob.digest(blob)}", body: blob) |> res_bool()
 
+
+  schema :embeddings, [
+    model: [
+      type: :string,
+      required: true,
+      doc: "The name of the model used to generate the embeddings.",
+    ],
+    prompt: [
+      type: :string,
+      required: true,
+      doc: "The prompt used to generate the embedding.",
+    ],
+    keep_alive: [
+      type: {:or, [:integer, :string]},
+      doc: "How long to keep the model loaded.",
+    ],
+    options: [
+      type: {:map, {:or, [:atom, :string]}, :any},
+      doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
+    ],
+  ]
+
   @doc """
   Generate embeddings from a model for the given prompt.
+
+  ## Options
+
+  #{doc(:embeddings)}
 
   ## Example
 
@@ -510,18 +614,14 @@ defmodule Ollama.API do
   """
   @spec embeddings(t(), keyword()) :: response()
   def embeddings(%__MODULE__{} = api, params) when is_list(params) do
-    schema = [
-      model: [type: :string, required: true],
-      prompt: [type: :string, required: true],
-      options: [type: {:map, {:or, [:atom, :string]}, :any}],
-    ]
-    with {:ok, params} <- NimbleOptions.validate(params, schema) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:embeddings)) do
       api
       |> req(:post, "/embeddings", json: Enum.into(params, %{}))
       |> res()
     end
   end
 
+  @doc false
   @deprecated "Use Ollama.API.embeddings/2"
   @spec embeddings(t(), String.t(), String.t(), keyword()) :: response()
   def embeddings(%__MODULE__{} = api, model, prompt, opts \\ [])

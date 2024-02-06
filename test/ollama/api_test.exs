@@ -2,43 +2,7 @@ defmodule Ollama.APITest do
   use ExUnit.Case
   alias Ollama.{Mock, StreamCatcher}
 
-  describe "completion/4" do
-    test "generates a response for a given prompt" do
-      mock = Ollama.API.mock(& Mock.respond(&1, :completion))
-      assert {:ok, res} = Ollama.API.completion(mock, [
-        model: "llama2",
-        prompt: "Why is the sky blue?",
-      ])
-      assert res["done"]
-      assert res["model"] == "llama2"
-      assert is_binary(res["response"])
-    end
-
-    test "streams a response for a given prompt" do
-      {:ok, pid} = StreamCatcher.start_link()
-      mock = Ollama.API.mock(& Mock.stream(&1, :completion))
-      assert {:ok, task} = Ollama.API.completion(mock, [
-        model: "llama",
-        prompt: "Why is the sky blue?",
-        stream: pid,
-      ])
-
-      Task.await(task)
-      res = StreamCatcher.get_state(pid)
-      assert is_list(res)
-      assert List.last(res) |> Map.get("done")
-    end
-
-    test "returns error when model not found" do
-      mock = Ollama.API.mock(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.API.completion(mock, [
-        model: "llama2",
-        prompt: "Why is the sky blue?",
-      ])
-    end
-  end
-
-  describe "chat/4" do
+  describe "chat2" do
     test "generates a response for a given prompt" do
       mock = Ollama.API.mock(& Mock.respond(&1, :chat))
       assert {:ok, res} = Ollama.API.chat(mock, [
@@ -79,7 +43,43 @@ defmodule Ollama.APITest do
     end
   end
 
-  describe "create_model/4" do
+  describe "completion/2" do
+    test "generates a response for a given prompt" do
+      mock = Ollama.API.mock(& Mock.respond(&1, :completion))
+      assert {:ok, res} = Ollama.API.completion(mock, [
+        model: "llama2",
+        prompt: "Why is the sky blue?",
+      ])
+      assert res["done"]
+      assert res["model"] == "llama2"
+      assert is_binary(res["response"])
+    end
+
+    test "streams a response for a given prompt" do
+      {:ok, pid} = StreamCatcher.start_link()
+      mock = Ollama.API.mock(& Mock.stream(&1, :completion))
+      assert {:ok, task} = Ollama.API.completion(mock, [
+        model: "llama",
+        prompt: "Why is the sky blue?",
+        stream: pid,
+      ])
+
+      Task.await(task)
+      res = StreamCatcher.get_state(pid)
+      assert is_list(res)
+      assert List.last(res) |> Map.get("done")
+    end
+
+    test "returns error when model not found" do
+      mock = Ollama.API.mock(& Mock.respond(&1, 404))
+      assert {:error, {:http_error, :not_found}} = Ollama.API.completion(mock, [
+        model: "llama2",
+        prompt: "Why is the sky blue?",
+      ])
+    end
+  end
+
+  describe "create_model2" do
     test "creates a model from the params" do
       modelfile = "FROM elena:latest\nSYSTEM \"You are mario from Super Mario Bros.\""
       mock = Ollama.API.mock(& Mock.respond(&1, :create_model))
@@ -136,7 +136,7 @@ defmodule Ollama.APITest do
     end
   end
 
-  describe "copy_model/3" do
+  describe "copy_model/2" do
     test "shows true if copied" do
       mock = Ollama.API.mock(& Mock.respond(&1, 200))
       assert {:ok, true} = Ollama.API.copy_model(mock, [
@@ -166,7 +166,7 @@ defmodule Ollama.APITest do
     end
   end
 
-  describe "pull_model/3" do
+  describe "pull_model/2" do
     test "pulls the given model" do
       mock = Ollama.API.mock(& Mock.respond(&1, :pull_model))
       assert {:ok, res} = Ollama.API.pull_model(mock, name: "llama2")
@@ -211,7 +211,7 @@ defmodule Ollama.APITest do
     end
   end
 
-  describe "embeddings/4" do
+  describe "embeddings/2" do
     test "generates an embedding for a given prompt" do
       mock = Ollama.API.mock(& Mock.respond(&1, :embeddings))
       assert {:ok, res} = Ollama.API.embeddings(mock, [
