@@ -210,9 +210,9 @@ defmodule Ollama.Mock do
     ]
   }
 
-  @spec new(module() | fun()) :: Ollama.API.t()
+  @spec new(module() | fun()) :: Ollama.client()
   def new(plug) when is_atom(plug) or is_function(plug, 1) do
-    Ollama.API.new(Req.new(plug: plug))
+    Ollama.init(Req.new(plug: plug))
   end
 
   @spec respond(Plug.Conn.t(), atom() | integer()) :: Plug.Conn.t()
