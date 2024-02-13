@@ -210,6 +210,11 @@ defmodule Ollama.Mock do
     ]
   }
 
+  @spec new(module() | fun()) :: Ollama.API.t()
+  def new(plug) when is_atom(plug) or is_function(plug, 1) do
+    Ollama.API.new(Req.new(plug: plug))
+  end
+
   @spec respond(Plug.Conn.t(), atom() | integer()) :: Plug.Conn.t()
   def respond(conn, name) when is_atom(name) do
     conn
@@ -221,7 +226,7 @@ defmodule Ollama.Mock do
     Plug.Conn.send_resp(conn, status, "")
   end
 
-  @spec respond(Plug.Conn.t(), atom()) :: Plug.Conn.t()
+  @spec stream(Plug.Conn.t(), atom()) :: Plug.Conn.t()
   def stream(conn, name) when is_atom(name) do
     Enum.reduce(@stream_mocks[name], Plug.Conn.send_chunked(conn, 200), fn chunk, conn ->
       {:ok, conn} = Plug.Conn.chunk(conn, chunk)

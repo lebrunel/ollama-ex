@@ -147,11 +147,6 @@ defmodule Ollama.API do
   def new(%Req.Request{} = req),
     do: struct(__MODULE__, req: req)
 
-  @doc false
-  @spec mock(module() | fun()) :: t()
-  def mock(plug) when is_atom(plug) or is_function(plug, 1),
-    do: new(Req.new(plug: plug))
-
 
   schema :chat, [
     model: [
@@ -167,6 +162,10 @@ defmodule Ollama.API do
     template: [
       type: :string,
       doc: "Prompt template, overriding the model default.",
+    ],
+    format: [
+      type: :string,
+      doc: "Set the expected format of the response (`json`).",
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
@@ -264,6 +263,10 @@ defmodule Ollama.API do
     context: [
       type: {:list, {:or, [:integer, :float]}},
       doc: "The context parameter returned from a previous `f:completion/2` call (enabling short conversational memory).",
+    ],
+    format: [
+      type: :string,
+      doc: "Set the expected format of the response (`json`).",
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
