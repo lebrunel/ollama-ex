@@ -25,7 +25,7 @@ end
 
 ## Quickstart
 
-For more examples, refer to the [`Ollama documentation`](https://hexdocs.pm/ollama).
+For more examples, refer to the [Ollama documentation](https://hexdocs.pm/ollama).
 
 ### 1. Generate a completion
 
