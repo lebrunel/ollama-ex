@@ -229,13 +229,6 @@ defmodule Ollama.API do
     end
   end
 
-  @doc false
-  @deprecated "Use Ollama.API.chat/2"
-  @spec chat(t(), String.t(), list(message()), keyword()) :: response()
-  def chat(%__MODULE__{} = api, model, messages, opts \\ [])
-    when is_binary(model) and is_list(messages),
-    do: chat(api, [{:model, model}, {:messages, messages} | opts])
-
 
   schema :completion, [
     model: [
@@ -314,13 +307,6 @@ defmodule Ollama.API do
     end
   end
 
-  @doc false
-  @deprecated "Use Ollama.API.completion/2"
-  @spec completion(t(), String.t(), String.t(), keyword()) :: response()
-  def completion(%__MODULE__{} = api, model, prompt, opts \\ [])
-    when is_binary(model) and is_binary(prompt),
-    do: completion(api, [{:model, model}, {:prompt, prompt} | opts])
-
 
   schema :create_model, [
     name: [
@@ -367,13 +353,6 @@ defmodule Ollama.API do
       req(api, :post, "/create", json: Enum.into(params, %{})) |> res()
     end
   end
-
-  @doc false
-  @deprecated "Use Ollama.API.create_model/2"
-  @spec create_model(t(), String.t(), String.t(), keyword()) :: response()
-  def create_model(%__MODULE__{} = api, model, modelfile, opts \\ [])
-    when is_binary(model) and is_binary(modelfile),
-    do: create_model(api, [{:name, model}, {:modelfile, modelfile} | opts])
 
 
   @doc """
@@ -465,13 +444,6 @@ defmodule Ollama.API do
     end
   end
 
-  @doc false
-  @deprecated "Use Ollama.API.copy_model/2"
-  @spec copy_model(t(), String.t(), String.t()) :: response()
-  def copy_model(%__MODULE__{} = api, from, to)
-    when is_binary(from) and is_binary(to),
-    do: copy_model(api, source: from, destination: to)
-
 
   schema :delete_model, [
     name: [
@@ -536,15 +508,6 @@ defmodule Ollama.API do
       req(api, :post, "/pull", json: Enum.into(params, %{})) |> res()
     end
   end
-
-  def pull_model(%__MODULE__{} = api, model) when is_binary(model),
-    do: pull_model(api, model, [])
-
-  @doc false
-  @deprecated "Use Ollama.API.pull_model/2"
-  @spec pull_model(t(), String.t(), keyword()) :: response()
-  def pull_model(%__MODULE__{} = api, model, opts) when is_binary(model),
-    do: pull_model(api, [{:name, model} | opts])
 
 
   schema :push_model, [
@@ -663,13 +626,6 @@ defmodule Ollama.API do
       |> res()
     end
   end
-
-  @doc false
-  @deprecated "Use Ollama.API.embeddings/2"
-  @spec embeddings(t(), String.t(), String.t(), keyword()) :: response()
-  def embeddings(%__MODULE__{} = api, model, prompt, opts \\ [])
-    when is_binary(model) and is_binary(prompt),
-    do: embeddings(api, [{:model, model}, {:prompt, prompt} | opts])
 
 
   # Builds the request from the given params
