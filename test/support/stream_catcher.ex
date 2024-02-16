@@ -21,7 +21,7 @@ defmodule Ollama.StreamCatcher do
 
   @impl true
   def handle_info({_from, {:data, data}}, state) do
-    state = case String.valid?(data) do
+    state = case is_binary(data) do
       false ->
         [data | state]
       true ->

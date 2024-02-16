@@ -196,26 +196,51 @@ defmodule Ollama do
   @typep req_response() :: {:ok, Req.Response.t()} | {:error, term()} | Task.t()
 
 
+  @default_req_opts [
+    base_url: "http://localhost:11434/api",
+    receive_timeout: 60_000,
+  ]
+
   @doc """
-  Creates a new API client with the provided URL. If no URL is given, it
-  defaults to `"http://localhost:11434/api"`.
+  Creates a new Ollama API client. Accepts either a base URL for the Ollama API,
+  a keyword list of options passed to `Req.new/1`, or an existing `t:Req.Request.t/0`
+  struct.
+
+  If no arguments are given, the client is initiated with the default options:
+
+  ```elixir
+  @default_req_opts [
+    base_url: "http://localhost:11434/api",
+    receive_timeout: 60_000,
+  ]
+  ```
 
   ## Examples
 
       iex> client = Ollama.init("https://ollama.service.ai:11434/api")
       %Ollama{}
   """
-  @spec init(Req.url() | Req.Request.t()) :: client()
-  def init(url \\ "http://localhost:11434/api")
+  @spec init(Req.url() | keyword() | Req.Request.t()) :: client()
+  def init(opts \\ [])
 
   def init(url) when is_binary(url),
-    do: struct(__MODULE__, req: Req.new(base_url: url))
+    do: struct(__MODULE__, req: init_req(base_url: url))
 
   def init(%URI{} = url),
-    do: struct(__MODULE__, req: Req.new(base_url: url))
+    do: struct(__MODULE__, req: init_req(base_url: url))
+
+  def init(opts) when is_list(opts),
+    do: struct(__MODULE__, req: init_req(opts))
 
   def init(%Req.Request{} = req),
     do: struct(__MODULE__, req: req)
+
+  @spec init_req(keyword()) :: Req.Request.t()
+  defp init_req(opts) do
+    @default_req_opts
+    |> Keyword.merge(opts)
+    |> Req.new()
+  end
 
 
   schema :chat, [
