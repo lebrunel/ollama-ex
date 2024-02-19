@@ -1,4 +1,5 @@
-defmodule Ollama.Mock do
+defmodule Ollama.MockServer do
+  use Plug.Router
 
   @mocks %{
     completion: """
@@ -210,30 +211,67 @@ defmodule Ollama.Mock do
     ]
   }
 
-  @spec new(module() | fun()) :: Ollama.client()
-  def new(plug) when is_atom(plug) or is_function(plug, 1) do
-    Ollama.init(Req.new(plug: plug))
+  plug :match
+  plug Plug.Parsers, parsers: [:json], json_decoder: Jason
+  plug :dispatch
+
+  post "/chat", do: handle_request(conn, :chat)
+  post "/generate", do: handle_request(conn, :completion)
+  post "/create", do: handle_request(conn, :create_model)
+  get "/tags", do: handle_request(conn, :list_models)
+  post "/show", do: handle_request(conn, :show_model)
+
+  post "/copy" do
+    case conn.body_params do
+      %{"source" => "llama2"} -> respond(conn, 200)
+      %{"source" => "not-found"} -> respond(conn, 404)
+    end
   end
 
-  @spec respond(Plug.Conn.t(), atom() | integer()) :: Plug.Conn.t()
-  def respond(conn, name) when is_atom(name) do
+  delete "/delete" do
+    case conn.body_params do
+      %{"name" => "llama2"} -> respond(conn, 200)
+      %{"name" => "not-found"} -> respond(conn, 404)
+    end
+  end
+
+  post "/pull", do: handle_request(conn, :pull_model)
+  post "/push", do: handle_request(conn, :push_model)
+
+  head "/blobs/:digest" do
+    case conn.params["digest"] do
+      "sha256:cd58120326971c71c0590f6b7084a0744e287ce9c67275d8b4bf34a5947d950b" -> respond(conn, 200)
+      _ -> respond(conn, 404)
+    end
+  end
+
+  post "/blobs/:digest", do: respond(conn, 200)
+  post "/embeddings", do: handle_request(conn, :embeddings)
+
+  defp handle_request(conn, name) do
+    case conn.body_params do
+      %{"model" => "not-found"} -> respond(conn, 404)
+      %{"name" => "not-found"} -> respond(conn, 404)
+      %{"stream" => true} -> stream(conn, name)
+      _ -> respond(conn, name)
+    end
+  end
+
+  defp respond(conn, name) when is_atom(name) do
     conn
-    |> Plug.Conn.put_resp_header("content-type", "application/json")
-    |> Plug.Conn.send_resp(200, @mocks[name])
+    |> put_resp_header("content-type", "application/json")
+    |> send_resp(200, @mocks[name])
   end
 
-  def respond(conn, status) when is_number(status) do
-    Plug.Conn.send_resp(conn, status, "")
+  defp respond(conn, status) when is_number(status) do
+    send_resp(conn, status, "")
   end
 
-  @spec stream(Plug.Conn.t(), atom()) :: Plug.Conn.t()
-  def stream(conn, name) when is_atom(name) do
-    Enum.reduce(@stream_mocks[name], Plug.Conn.send_chunked(conn, 200), fn chunk, conn ->
-      {:ok, conn} = Plug.Conn.chunk(conn, chunk)
+  defp stream(conn, name) do
+    Enum.reduce(@stream_mocks[name], send_chunked(conn, 200), fn chunk, conn ->
+      {:ok, conn} = chunk(conn, chunk)
       conn
     end)
   end
-
-  #defp json(data) when is_map(data), do: Jason.encode!(data)
 
 end
