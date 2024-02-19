@@ -26,11 +26,15 @@ defmodule Ollama do
 
   ## Quickstart
 
-  > #### API change {: .warning}
+  > #### API change {: .info}
   >
-  > The `Ollama.API` module has been deprecated in favour of the top level
-  `Ollama` module. Apologies for the namespace change. `Ollama.API` will be
-  removed in version 1.
+  > The last two minor versions have introduced breaking API changes. We'll stop
+  doing this at version 1.0.0 - promise 🙏🏻.
+  >
+  > - `0.5.0` - Streaming requests no longer return a `t:Task.t/0`, they return
+  a `t:Ollama.Streaming.t/0` struct. Refer to the [section on Streaming](#module-streaming).
+  > - `0.4.0` - The `Ollama.API` module has been deprecated in favour of the top
+  level `Ollama` module. `Ollama.API` will be removed in version 1.
 
   Assuming you have Ollama running on localhost, and that you have installed a
   model, use `completion/2` or `chat/2` interact with the model.
@@ -117,8 +121,7 @@ defmodule Ollama do
     # When the client invokes the "prompt" event, create a streaming request and
     # asynchronously send messages back to self.
     def handle_event("prompt", %{"message" => prompt}, socket) do
-      client = Ollama.init()
-      {:ok, streamer} = Ollama.completion(client, [
+      {:ok, streamer} = Ollama.completion(Ollama.init(), [
         model: "llama2",
         prompt: prompt,
         stream: true,
@@ -132,7 +135,7 @@ defmodule Ollama do
       }
     end
 
-    # The streaming request sends messages back to the LiveView process
+    # The streaming request sends messages back to the LiveView process.
     def handle_info({_request_ref, {:data, _data}} = message, socket) do
       ref = socket.assigns.current_request
       case message do
@@ -147,7 +150,7 @@ defmodule Ollama do
       end
     end
 
-    # The streaming request is finished
+    # When the streaming request is finished, remove the current reference.
     def handle_async(:streaming, :ok, socket) do
       {:noreply, assign(socket, current_request: nil)}
     end
@@ -191,7 +194,7 @@ defmodule Ollama do
   @type message() :: map()
 
   @typedoc "Client response"
-  @type response() :: {:ok, Streaming.t() | map() | boolean()} | {:error, term()}
+  @type response() :: {:ok, map() | boolean() | Streaming.t()} | {:error, term()}
 
   @typep req_response() :: {:ok, Req.Response.t() | Streaming.t()} | {:error, term()}
 

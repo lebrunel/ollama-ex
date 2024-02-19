@@ -100,8 +100,7 @@ defmodule MyApp.ChatLive do
   # When the client invokes the "prompt" event, create a streaming request and
   # asynchronously send messages back to self.
   def handle_event("prompt", %{"message" => prompt}, socket) do
-    client = Ollama.init()
-    {:ok, streamer} = Ollama.completion(client, [
+    {:ok, streamer} = Ollama.completion(Ollama.init(), [
       model: "llama2",
       prompt: prompt,
       stream: true,
@@ -115,7 +114,7 @@ defmodule MyApp.ChatLive do
     }
   end
 
-  # The streaming request sends messages back to the LiveView process
+  # The streaming request sends messages back to the LiveView process.
   def handle_info({_request_ref, {:data, _data}} = message, socket) do
     ref = socket.assigns.current_request
     case message do
@@ -130,7 +129,7 @@ defmodule MyApp.ChatLive do
     end
   end
 
-  # The streaming request is finished
+  # When the streaming request is finished, remove the current reference.
   def handle_async(:streaming, :ok, socket) do
     {:noreply, assign(socket, current_request: nil)}
   end
