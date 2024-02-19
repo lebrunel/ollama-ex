@@ -62,7 +62,7 @@ Ollama.chat(client, [
 
 ## Streaming
 
-When an Ollama endpoint is called with the `:stream` option set to `true`, a `t:Ollama.Streaming.t/0` struct is returned providing a unqiue `t:reference/0` for the streaming request, and a lazy enumerable that generates messages as they are received from the streaming request.
+When an Ollama endpoint is called with the `:stream` option set to `true`, a `t:Ollama.Streaming.t/0` struct is returned providing a unique `t:reference/0` for the streaming request, and a lazy enumerable that generates messages as they are received from the streaming request.
 
 ```elixir
 Ollama.completion(client, [
