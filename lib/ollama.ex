@@ -72,10 +72,8 @@ defmodule Ollama do
 
   By default, all endpoints are called with streaming disabled, blocking until
   the HTTP request completes and the response body is returned. For endpoints
-  where streaming is supported, the `:stream` option can be set to `true` or a
-  `t:pid/0`. When streaming is enabled, the function returns a `t:Task.t/0`,
-  which asynchronously sends messages back to either the calling process, or the
-  process associated with the given `t:pid/0`.
+  where streaming is supported, the `:stream` option can be set to `true`, and
+  the function returns a `t:Ollama.Streaming.t/0` struct.
 
   ```elixir
   iex> Ollama.completion(client, [
@@ -83,79 +81,81 @@ defmodule Ollama do
   ...>   prompt: "Why is the sky blue?",
   ...>   stream: true,
   ...> ])
-  {:ok, %Task{}}
+  {:ok, %Ollama.Streaming{}}
 
   iex> Ollama.chat(client, [
   ...>   model: "llama2",
   ...>   messages: messages,
   ...>   stream: true,
   ...> ])
-  {:ok, %Task{}}
+  {:ok, %Ollama.Streaming{}}
   ```
 
-  Messages will be sent in the following format, allowing the receiving process
-  to pattern match against the pid of the async task if known:
+  `Ollama.Streaming` implements the `Enumerable` protocol, so can be used
+  directly with `Stream` functions. Most of the time, you'll just want to
+  asynchronously call `Ollama.Streaming.send_to/2`, which will run the stream
+  and send each message to a process of your chosing.
+
+  Messages are sent in the following format, allowing the receiving process
+  to pattern match against the `t:reference/0` of the streaming request:
 
   ```elixir
-  {request_pid, {:data, data}}
+  {request_ref, {:data, data}}
   ```
 
-  The data is a map from the Ollama JSON message. See
+  Each data chunk is a map. For its schema, Refer to the
   [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md).
 
-  You could manually create a `receive` block to handle messages.
+  A typical example is to make a streaming request as part of a LiveView event,
+  and send each of the streaming messages back to the same LiveView process.
 
   ```elixir
-  receive do
-    {^current_message_pid, {:data, %{"done" => true} = data}} ->
-      # handle last message
-    {^current_message_pid, {:data, data}} ->
-      # handle message
-    {_pid, _data_} ->
-      # this message was not expected!
-  end
-  ```
-
-  In most cases you will probably use `c:GenServer.handle_info/2`. The following
-  example show's how a LiveView process may by constructed to both create the
-  streaming request and receive the streaming messages.
-
-  ```elixir
-  defmodule Ollama.ChatLive do
+  defmodule MyApp.ChatLive do
     use Phoenix.LiveView
+    alias Ollama.Streaming
 
-    # When the client invokes the "prompt" event, create a streaming request
-    # and optionally store the request task into the assigns
+    # When the client invokes the "prompt" event, create a streaming request and
+    # asynchronously send messages back to self.
     def handle_event("prompt", %{"message" => prompt}, socket) do
       client = Ollama.init()
-      {:ok, task} = Ollama.completion(client, [
+      {:ok, streamer} = Ollama.completion(client, [
         model: "llama2",
         prompt: prompt,
         stream: true,
       ])
 
-      {:noreply, assign(socket, current_request: task)}
+      pid = self()
+      {:noreply,
+        socket
+        |> assign(current_request: streamer.ref)
+        |> start_async(:streaming, fn -> Streaming.send_to(streaming, pid) end)
+      }
     end
 
-    # The request task streams messages back to the LiveView process
-    def handle_info({_request_pid, {:data, _data}} = message, socket) do
-      pid = socket.assigns.current_request.pid
+    # The streaming request sends messages back to the LiveView process
+    def handle_info({_request_ref, {:data, _data}} = message, socket) do
+      ref = socket.assigns.current_request
       case message do
-        {^pid, {:data, %{"done" => false} = data}} ->
+        {^ref, {:data, %{"done" => false} = data}} ->
           # handle each streaming chunk
 
-        {^pid, {:data, %{"done" => true} = data}} ->
+        {^ref, {:data, %{"done" => true} = data}} ->
           # handle the final streaming chunk
 
-        {_pid, _data} ->
+        {_ref, _data} ->
           # this message was not expected!
       end
+    end
+
+    # The streaming request is finished
+    def handle_async(:streaming, :ok, socket) do
+      {:noreply, assign(socket, current_request: nil)}
     end
   end
   ```
   """
   use Ollama.Schemas
-  alias Ollama.Blob
+  alias Ollama.{Blob, Streaming}
   defstruct [:req]
 
   @typedoc "Client struct"
@@ -191,9 +191,9 @@ defmodule Ollama do
   @type message() :: map()
 
   @typedoc "Client response"
-  @type response() :: {:ok, Task.t() | map() | boolean()} | {:error, term()}
+  @type response() :: {:ok, Streaming.t() | map() | boolean()} | {:error, term()}
 
-  @typep req_response() :: {:ok, Req.Response.t()} | {:error, term()} | Task.t()
+  @typep req_response() :: {:ok, Req.Response.t() | Streaming.t()} | {:error, term()}
 
 
   @default_req_opts [
@@ -263,7 +263,7 @@ defmodule Ollama do
       doc: "Set the expected format of the response (`json`).",
     ],
     stream: [
-      type: {:or, [:boolean, :pid]},
+      type: :boolean,
       default: false,
       doc: "See [section on streaming](#module-streaming).",
     ],
@@ -315,7 +315,7 @@ defmodule Ollama do
       ...>   messages: messages,
       ...>   stream: true,
       ...> ])
-      {:ok, Task{}}
+      {:ok, Ollama.Streaming{}}
   """
   @spec chat(client(), keyword()) :: response()
   def chat(%__MODULE__{} = client, params) when is_list(params) do
@@ -359,7 +359,7 @@ defmodule Ollama do
       doc: "Set the expected format of the response (`json`).",
     ],
     stream: [
-      type: {:or, [:boolean, :pid]},
+      type: :boolean,
       default: false,
       doc: "See [section on streaming](#module-streaming).",
     ],
@@ -395,7 +395,7 @@ defmodule Ollama do
       ...>   prompt: "Why is the sky blue?",
       ...>   stream: true,
       ...> ])
-      {:ok, %Task{}}
+      {:ok, %Ollama.Streaming{}}
   """
   @spec completion(client(), keyword()) :: response()
   def completion(%__MODULE__{} = client, params) when is_list(params) do
@@ -419,7 +419,7 @@ defmodule Ollama do
       doc: "Contents of the Modelfile.",
     ],
     stream: [
-      type: {:or, [:boolean, :pid]},
+      type: :boolean,
       default: false,
       doc: "See [section on streaming](#module-streaming).",
     ],
@@ -444,7 +444,7 @@ defmodule Ollama do
       ...>   modelfile: modelfile,
       ...>   stream: true,
       ...> ])
-      {:ok, Task{}}
+      {:ok, Ollama.Streaming{}}
   """
   @spec create_model(client(), keyword()) :: response()
   def create_model(%__MODULE__{} = client, params) when is_list(params) do
@@ -590,7 +590,7 @@ defmodule Ollama do
       doc: "Name of the model to pull.",
     ],
     stream: [
-      type: {:or, [:boolean, :pid]},
+      type: :boolean,
       default: false,
       doc: "See [section on streaming](#module-streaming).",
     ],
@@ -610,7 +610,7 @@ defmodule Ollama do
 
       # Passing true to the :stream option initiates an async streaming request.
       iex> Ollama.pull_model(client, name: "llama2", stream: true)
-      {:ok, %Task{}}
+      {:ok, %Ollama.Streaming{}}
   """
   @spec pull_model(client(), keyword()) :: response()
   def pull_model(%__MODULE__{} = client, params) when is_list(params) do
@@ -629,7 +629,7 @@ defmodule Ollama do
       doc: "Name of the model to pull.",
     ],
     stream: [
-      type: {:or, [:boolean, :pid]},
+      type: :boolean,
       default: false,
       doc: "See [section on streaming](#module-streaming).",
     ],
@@ -650,7 +650,7 @@ defmodule Ollama do
 
       # Passing true to the :stream option initiates an async streaming request.
       iex> Ollama.push_model(client, name: "mattw/pygmalion:latest", stream: true)
-      {:ok, %Task{}}
+      {:ok, %Ollama.Streaming{}}
   """
   @spec push_model(client(), keyword()) :: response()
   def push_model(%__MODULE__{} = client, params) when is_list(params) do
@@ -749,21 +749,18 @@ defmodule Ollama do
   @spec req(client(), atom(), Req.url(), keyword()) :: req_response()
   defp req(%__MODULE__{req: req}, method, url, opts \\ []) do
     opts = Keyword.merge(opts, method: method, url: url)
-    dest = case get_in(opts, [:json, :stream]) do
-      true -> self()
-      dest -> dest
-    end
 
     cond do
-      is_pid(dest) ->
+      get_in(opts, [:json, :stream]) ->
         opts = opts
         |> Keyword.update!(:json, & Map.put(&1, :stream, true))
-        |> Keyword.put(:into, stream_to(dest))
+        |> Keyword.put(:into, streamer(self()))
+        {:ok, Streaming.init(Req, :request, [req, opts])}
 
-        Task.async(Req, :request, [req, opts])
       Keyword.get(opts, :json) |> is_map() ->
         opts = Keyword.update!(opts, :json, & Map.put(&1, :stream, false))
         Req.request(req, opts)
+
       true ->
         Req.request(req, opts)
     end
@@ -771,14 +768,14 @@ defmodule Ollama do
 
   # Normalizes the response returned from the request
   @spec res(req_response()) :: response()
-  defp res(%Task{} = task), do: {:ok, task}
+  defp res({:ok, %Streaming{} = stream}), do: {:ok, stream}
 
   defp res({:ok, %{status: status, body: body}}) when status in 200..299 do
     {:ok, body}
   end
 
   defp res({:ok, %{status: status}}) do
-    {:error, {:http_error, Plug.Conn.Status.reason_atom(status)}}
+    {:error, Ollama.HTTPError.exception(status)}
   end
 
   defp res({:error, error}), do: {:error, error}
@@ -789,17 +786,11 @@ defmodule Ollama do
   defp res_bool({:ok, _res}), do: {:ok, false}
   defp res_bool({:error, error}), do: {:error, error}
 
-  # Returns a callback to handle streaming responses
-  @spec stream_to(pid()) :: fun()
-  defp stream_to(pid) do
+  # TODO Returns a callback to handle streaming responses
+  @spec streamer(pid) :: fun()
+  defp streamer(pid) when is_pid(pid) do
     fn {:data, data}, acc ->
-      case Jason.decode(data) do
-        {:ok, data} ->
-          Process.send(pid, {self(), {:data, data}}, [])
-
-        {:error, _} ->
-          Process.send(pid, {self(), {:data, data}}, [])
-      end
+      Process.send(pid, {self(), {:data, data}}, [])
       {:cont, acc}
     end
   end

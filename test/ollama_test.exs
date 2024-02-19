@@ -1,11 +1,16 @@
 defmodule OllamaTest do
-  use ExUnit.Case
-  alias Ollama.{Mock, StreamCatcher}
+  use ExUnit.Case, async: true
+  alias Ollama.HTTPError
+
+  setup_all do
+    {:ok, pid} = Bandit.start_link(plug: Ollama.MockServer)
+    on_exit(fn -> Process.exit(pid, :normal) end)
+    {:ok, client: Ollama.init("http://localhost:4000")}
+  end
 
   describe "chat2" do
-    test "generates a response for a given prompt" do
-      mock = Mock.new(& Mock.respond(&1, :chat))
-      assert {:ok, res} = Ollama.chat(mock, [
+    test "generates a response for a given prompt", %{client: client} do
+      assert {:ok, res} = Ollama.chat(client, [
         model: "llama2",
         messages: [
           %{role: "user", content: "Why is the sky blue?"}
@@ -16,26 +21,22 @@ defmodule OllamaTest do
       assert is_map(res["message"])
     end
 
-    test "streams a response for a given prompt" do
-      {:ok, pid} = StreamCatcher.start_link()
-      mock = Mock.new(& Mock.stream(&1, :chat))
-      assert {:ok, task} = Ollama.chat(mock, [
+    test "streams a response for a given prompt", %{client: client} do
+      assert {:ok, stream} = Ollama.chat(client, [
         model: "llama2",
         messages: [
           %{role: "user", content: "Why is the sky blue?"}
         ],
-        stream: pid,
+        stream: true,
       ])
-      Task.await(task)
-      res = StreamCatcher.get_state(pid)
+      res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("done")
     end
 
-    test "returns error when model not found" do
-      mock = Mock.new(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.chat(mock, [
-        model: "llama2",
+    test "returns error when model not found", %{client: client} do
+      assert {:error, %HTTPError{status: 404}} = Ollama.chat(client, [
+        model: "not-found",
         messages: [
           %{role: "user", content: "Why is the sky blue?"}
         ],
@@ -44,9 +45,8 @@ defmodule OllamaTest do
   end
 
   describe "completion/2" do
-    test "generates a response for a given prompt" do
-      mock = Mock.new(& Mock.respond(&1, :completion))
-      assert {:ok, res} = Ollama.completion(mock, [
+    test "generates a response for a given prompt", %{client: client} do
+      assert {:ok, res} = Ollama.completion(client, [
         model: "llama2",
         prompt: "Why is the sky blue?",
       ])
@@ -55,61 +55,51 @@ defmodule OllamaTest do
       assert is_binary(res["response"])
     end
 
-    test "streams a response for a given prompt" do
-      {:ok, pid} = StreamCatcher.start_link()
-      mock = Mock.new(& Mock.stream(&1, :completion))
-      assert {:ok, task} = Ollama.completion(mock, [
+    test "streams a response for a given prompt", %{client: client} do
+      assert {:ok, stream} = Ollama.completion(client, [
         model: "llama",
         prompt: "Why is the sky blue?",
-        stream: pid,
+        stream: true,
       ])
-
-      Task.await(task)
-      res = StreamCatcher.get_state(pid)
+      res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("done")
     end
 
-    test "returns error when model not found" do
-      mock = Mock.new(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.completion(mock, [
-        model: "llama2",
+    test "returns error when model not found", %{client: client} do
+      assert {:error, %HTTPError{status: 404}} = Ollama.completion(client, [
+        model: "not-found",
         prompt: "Why is the sky blue?",
       ])
     end
   end
 
   describe "create_model2" do
-    test "creates a model from the params" do
+    test "creates a model from the params", %{client: client} do
       modelfile = "FROM elena:latest\nSYSTEM \"You are mario from Super Mario Bros.\""
-      mock = Mock.new(& Mock.respond(&1, :create_model))
-      assert {:ok, res} = Ollama.create_model(mock, [
+      assert {:ok, res} = Ollama.create_model(client, [
         name: "mario",
         modelfile: modelfile,
       ])
       assert res["status"] == "success"
     end
 
-    test "creates a model from the params and streams the response" do
-      {:ok, pid} = StreamCatcher.start_link()
+    test "creates a model from the params and streams the response", %{client: client} do
       modelfile = "FROM elena:latest\nSYSTEM \"You are mario from Super Mario Bros.\""
-      mock = Mock.new(& Mock.stream(&1, :create_model))
-      assert {:ok, task} = Ollama.create_model(mock, [
+      assert {:ok, stream} = Ollama.create_model(client, [
         name: "mario",
         modelfile: modelfile,
-        stream: pid,
+        stream: true,
       ])
-      Task.await(task)
-      res = StreamCatcher.get_state(pid)
+      res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("status") == "success"
     end
   end
 
   describe "list_models/1" do
-    test "lists models that are available" do
-      mock = Mock.new(& Mock.respond(&1, :list_models))
-      assert {:ok, %{"models" => models}} = Ollama.list_models(mock)
+    test "lists models that are available", %{client: client} do
+      assert {:ok, %{"models" => models}} = Ollama.list_models(client)
       assert is_list(models)
       for model <- models do
         assert is_binary(model["name"])
@@ -121,121 +111,102 @@ defmodule OllamaTest do
   end
 
   describe "show_model/2" do
-    test "shows information about a model" do
-      mock = Mock.new(& Mock.respond(&1, :show_model))
-      assert {:ok, model} = Ollama.show_model(mock, name: "llama2")
+    test "shows information about a model", %{client: client} do
+      assert {:ok, model} = Ollama.show_model(client, name: "llama2")
       assert is_binary(model["modelfile"])
       assert is_binary(model["parameters"])
       assert is_binary(model["template"])
       assert is_map(model["details"])
     end
 
-    test "returns error when model not found" do
-      mock = Mock.new(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.show_model(mock, name: "llama2")
+    test "returns error when model not found", %{client: client} do
+      assert {:error, %HTTPError{status: 404}} = Ollama.show_model(client, name: "not-found")
     end
   end
 
   describe "copy_model/2" do
-    test "shows true if copied" do
-      mock = Mock.new(& Mock.respond(&1, 200))
-      assert {:ok, true} = Ollama.copy_model(mock, [
+    test "shows true if copied", %{client: client} do
+      assert {:ok, true} = Ollama.copy_model(client, [
         source: "llama2",
         destination: "llama2-copy",
       ])
     end
 
-    test "shows false if model not found" do
-      mock = Mock.new(& Mock.respond(&1, 404))
-      assert {:ok, false} = Ollama.copy_model(mock, [
-        source: "llama2",
+    test "shows false if model not found", %{client: client} do
+      assert {:ok, false} = Ollama.copy_model(client, [
+        source: "not-found",
         destination: "llama2-copy",
       ])
     end
   end
 
   describe "delete_model/2" do
-    test "shows true if copied" do
-      mock = Mock.new(& Mock.respond(&1, 200))
-      assert {:ok, true} = Ollama.delete_model(mock, name: "llama2")
+    test "shows true if copied", %{client: client} do
+      assert {:ok, true} = Ollama.delete_model(client, name: "llama2")
     end
 
-    test "shows false if model not found" do
-      mock = Mock.new(& Mock.respond(&1, 404))
-      assert {:ok, false} = Ollama.delete_model(mock, name: "llama2")
+    test "shows false if model not found", %{client: client} do
+      assert {:ok, false} = Ollama.delete_model(client, name: "not-found")
     end
   end
 
   describe "pull_model/2" do
-    test "pulls the given model" do
-      mock = Mock.new(& Mock.respond(&1, :pull_model))
-      assert {:ok, res} = Ollama.pull_model(mock, name: "llama2")
+    test "pulls the given model", %{client: client} do
+      assert {:ok, res} = Ollama.pull_model(client, name: "llama2")
       assert res["status"] == "success"
     end
 
-    test "pulls the given model and streams the response" do
-      {:ok, pid} = StreamCatcher.start_link()
-      mock = Mock.new(& Mock.stream(&1, :pull_model))
-      assert {:ok, task} = Ollama.pull_model(mock, [
+    test "pulls the given model and streams the response", %{client: client} do
+      assert {:ok, stream} = Ollama.pull_model(client, [
         name: "llama2",
-        stream: pid,
+        stream: true,
       ])
-      Task.await(task)
-      res = StreamCatcher.get_state(pid)
+      res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("status") == "success"
     end
   end
 
-  describe "push_model.2" do
-    test "pushes the given model" do
-      mock = Mock.new(& Mock.respond(&1, :push_model))
-      assert {:ok, res} = Ollama.push_model(mock, name: "mattw/pygmalion:latest")
+  describe "push_model/2" do
+    test "pushes the given model", %{client: client} do
+      assert {:ok, res} = Ollama.push_model(client, name: "mattw/pygmalion:latest")
       assert res["status"] == "success"
     end
 
-    test "pushes the given model and streams the response" do
-      {:ok, pid} = StreamCatcher.start_link()
-      mock = Mock.new(& Mock.stream(&1, :push_model))
-      assert {:ok, task} = Ollama.push_model(mock, [
+    test "pushes the given model and streams the response", %{client: client} do
+      assert {:ok, stream} = Ollama.push_model(client, [
         name: "mattw/pygmalion:latest",
-        stream: pid,
+        stream: true,
       ])
-      Task.await(task)
-      res = StreamCatcher.get_state(pid)
+      res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("status") == "success"
     end
   end
 
   describe "check_blob/2" do
-    test "returns true if a digest exists" do
-      mock = Mock.new(& Mock.respond(&1, 200))
-      assert {:ok, true} = Ollama.check_blob(mock, "sha256:cd58120326971c71c0590f6b7084a0744e287ce9c67275d8b4bf34a5947d950b")
+    test "returns true if a digest exists", %{client: client} do
+      assert {:ok, true} = Ollama.check_blob(client, "sha256:cd58120326971c71c0590f6b7084a0744e287ce9c67275d8b4bf34a5947d950b")
     end
 
-    test "returns false if a digest doesn't exist" do
-      mock = Mock.new(& Mock.respond(&1, 404))
-      assert {:ok, false} = Ollama.check_blob(mock, "sha256:00000000")
+    test "returns false if a digest doesn't exist", %{client: client} do
+      assert {:ok, false} = Ollama.check_blob(client, "sha256:00000000")
     end
 
-    test "optionally receives a raw blob over a digest" do
-      mock = Mock.new(& Mock.respond(&1, 404))
-      assert {:ok, false} = Ollama.check_blob(mock, <<0,1,2,3>>)
+    test "optionally receives a raw blob over a digest", %{client: client} do
+      assert {:ok, false} = Ollama.check_blob(client, <<0,1,2,3>>)
     end
   end
 
   describe "create_blob/2" do
-    test "creates a blob for the given binary data" do
-      mock = Mock.new(& Mock.respond(&1, 200))
-      assert {:ok, true} = Ollama.create_blob(mock, <<0,1,2,3>>)
+    test "creates a blob for the given binary data", %{client: client} do
+      assert {:ok, true} = Ollama.create_blob(client, <<0,1,2,3>>)
     end
   end
 
   describe "embeddings/2" do
-    test "generates an embedding for a given prompt" do
-      mock = Mock.new(& Mock.respond(&1, :embeddings))
-      assert {:ok, res} = Ollama.embeddings(mock, [
+    test "generates an embedding for a given prompt", %{client: client} do
+      assert {:ok, res} = Ollama.embeddings(client, [
         model: "llama2",
         prompt: "Why is the sky blue?",
       ])
@@ -243,10 +214,9 @@ defmodule OllamaTest do
       assert length(res["embedding"]) == 10
     end
 
-    test "returns error when model not found" do
-      mock = Mock.new(& Mock.respond(&1, 404))
-      assert {:error, {:http_error, :not_found}} = Ollama.embeddings(mock, [
-        model: "llama2",
+    test "returns error when model not found", %{client: client} do
+      assert {:error, %HTTPError{status: 404}} = Ollama.embeddings(client, [
+        model: "not-found",
         prompt: "Why is the sky blue?",
       ])
     end
