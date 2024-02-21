@@ -8,8 +8,10 @@ defmodule Ollama do
   models locally, and this is a nifty little library for working with Ollama in
   Elixir.
 
-  - API client fully implementing the Ollama API.
-  - Stream API responses to any Elixir process.
+  - 🦙 API client fully implementing the Ollama API
+  - 🛜 Streaming API requests
+    - Stream to an Enumerable
+    - Or stream messages to any Elixir process
 
   ## Installation
 

@@ -8,8 +8,10 @@
 
 [Ollama](https://ollama.ai) is a nifty little tool for running large language models locally, and this is a nifty little library for working with Ollama in Elixir.
 
-- API client fully implementing the Ollama API.
-- Stream API responses to any Elixir process.
+- 🦙 API client fully implementing the Ollama API
+  - 🛜 Streaming API requests
+    - Stream to an Enumerable
+    - Or stream messages to any Elixir process
 
 ## Installation
 
@@ -18,7 +20,7 @@ The package can be installed by adding `ollama` to your list of dependencies in 
 ```elixir
 def deps do
   [
-    {:ollama, "~> 0.5"}
+    {:ollama, "~> 0.5.1"}
   ]
 end
 ```
@@ -62,79 +64,67 @@ Ollama.chat(client, [
 
 ## Streaming
 
-When an Ollama endpoint is called with the `:stream` option set to `true`, a `t:Ollama.Streaming.t/0` struct is returned providing a unique `t:reference/0` for the streaming request, and a lazy enumerable that generates messages as they are received from the streaming request.
+On endpoints where streaming is supported, a streaming request can be initiated by setting the `:stream` option to `true` or a `t:pid/0`.
+
+When `:stream` is `true` a lazy `t:Enumerable.t/0` is returned which can be used with any `Stream` functions.
 
 ```elixir
-Ollama.completion(client, [
+{:ok, stream} = Ollama.completion(client, [
   model: "llama2",
   prompt: "Why is the sky blue?",
   stream: true,
 ])
-# {:ok, %Ollama.Streaming{}}
 
-Ollama.chat(client, [
-  model: "llama2",
-  messages: messages,
-  stream: true,
-])
-# {:ok, %Ollama.Streaming{}}
+stream
+|> Stream.each(& Process.send(pid, &1, [])
+|> Stream.run()
+# :ok
 ```
 
-`Ollama.Streaming` implements the `Enumerable` protocol, so can be used directly with `Stream` functions. Most of the time, you'll just want to asynchronously call `Ollama.Streaming.send_to/2`, which will run the stream and send each message to a process of your chosing.
+Because the above approach builds the `t:Enumerable.t/0` by calling `receive`, using this approach inside `GenServer` callbacks may cause the GenServer to misbehave. Instead of setting the `:stream` option to `true`, you can set it to a `t:pid/0`. A `t:Task.t/0` is returned which will send messages to the specified process.
 
-Messages are sent in the following format, allowing the receiving process to pattern match against the `t:reference/0` of the streaming request:
-
-```elixir
-{request_pid, {:data, data}}
-```
-
-Each data chunk is a map. For its schema, Refer to the [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md).
-
-A typical example is to make a streaming request as part of a LiveView event, and send each of the streaming messages back to the same LiveView process.
+The example below demonstrates making a streaming request in a LiveView event, and sends each of the streaming messages back to the same LiveView process.
 
 ```elixir
 defmodule MyApp.ChatLive do
   use Phoenix.LiveView
-  alias Ollama.Streaming
 
   # When the client invokes the "prompt" event, create a streaming request and
   # asynchronously send messages back to self.
   def handle_event("prompt", %{"message" => prompt}, socket) do
-    {:ok, streamer} = Ollama.completion(Ollama.init(), [
+    {:ok, task} = Ollama.completion(Ollama.init(), [
       model: "llama2",
       prompt: prompt,
-      stream: true,
+      stream: self(),
     ])
 
-    pid = self()
-    {:noreply,
-      socket
-      |> assign(current_request: streamer.ref)
-      |> start_async(:streaming, fn -> Streaming.send_to(streaming, pid) end)
-    }
+    {:noreply, assign(socket, current_request: task)}
   end
 
   # The streaming request sends messages back to the LiveView process.
-  def handle_info({_request_ref, {:data, _data}} = message, socket) do
-    ref = socket.assigns.current_request
+  def handle_info({_request_pid, {:data, _data}} = message, socket) do
+    pid = socket.assigns.current_request.pid
     case message do
-      {^ref, {:data, %{"done" => false} = data}} ->
+      {^pid, {:data, %{"done" => false} = data}} ->
         # handle each streaming chunk
 
-      {^ref, {:data, %{"done" => true} = data}} ->
+      {^pid, {:data, %{"done" => true} = data}} ->
         # handle the final streaming chunk
 
-      {_ref, _data} ->
+      {_pid, _data} ->
         # this message was not expected!
     end
   end
 
-  # When the streaming request is finished, remove the current reference.
-  def handle_async(:streaming, :ok, socket) do
+  # Tidy up when the request is finished
+  def handle_info({ref, {:ok, %Req.Response{status: 200}}}, socket) do
+    Process.demonitor(ref, [:flush])
     {:noreply, assign(socket, current_request: nil)}
   end
 end
 ```
+
+Regardless of which approach to streaming you use, each of the streaming messages are a plain `t:map/0`. Refer to the [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md) for the schema.
 
 ## License
 
