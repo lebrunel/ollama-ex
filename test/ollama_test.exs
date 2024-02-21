@@ -222,4 +222,35 @@ defmodule OllamaTest do
     end
   end
 
+  describe "streaming methods" do
+    test "with stream: true, returns a lazy enumerable", %{client: client} do
+      assert {:ok, stream} = Ollama.chat(client, [
+        model: "llama2",
+        messages: [
+          %{role: "user", content: "Why is the sky blue?"}
+        ],
+        stream: true,
+      ])
+
+      assert is_function(stream, 2)
+      assert Enum.to_list(stream) |> length() == 2
+    end
+
+    test "with stream: pid, returns a task and sends messages to pid", %{client: client} do
+      {:ok, pid} = Ollama.StreamCatcher.start_link()
+      assert {:ok, task} = Ollama.chat(client, [
+        model: "llama2",
+        messages: [
+          %{role: "user", content: "Why is the sky blue?"}
+        ],
+        stream: pid,
+      ])
+
+      assert match?(%Task{}, task)
+      Task.await(task)
+      assert Ollama.StreamCatcher.get_state(pid) |> length() == 2
+      GenServer.stop(pid)
+    end
+  end
+
 end
