@@ -8,6 +8,39 @@ defmodule OllamaTest do
     {:ok, client: Ollama.init("http://localhost:4000")}
   end
 
+  describe "init/2" do
+    test "default client" do
+      client = Ollama.init()
+      assert "http://localhost:11434/api" = client.req.options.base_url
+      assert %{"user-agent" => _val} = client.req.headers
+    end
+
+    test "client with custom base url" do
+      client = Ollama.init("https://ollama.my.site/api")
+      assert "https://ollama.my.site/api" = client.req.options.base_url
+    end
+
+    test "client with custom req opts" do
+      client = Ollama.init(receive_timeout: :infinity)
+      assert "http://localhost:11434/api" = client.req.options.base_url
+      assert :infinity = client.req.options.receive_timeout
+    end
+
+    test "client with custom req struct" do
+      client = Ollama.init(Req.new(base_url: "https://ollama.my.site/api"))
+      assert "https://ollama.my.site/api" = client.req.options.base_url
+    end
+
+    test "client with merged headers" do
+      client = Ollama.init(headers: [
+        {"User-Agent", "testing"},
+        {"X-Test", "testing"},
+      ])
+      assert "http://localhost:11434/api" = client.req.options.base_url
+      assert %{"user-agent" => ["testing"], "x-test" => ["testing"]} = client.req.headers
+    end
+  end
+
   describe "chat2" do
     test "generates a response for a given prompt", %{client: client} do
       assert {:ok, res} = Ollama.chat(client, [

@@ -1,4 +1,5 @@
 defmodule Ollama do
+  @version Keyword.fetch!(Mix.Project.config(), :version)
   @moduledoc """
   ![Ollama-ex](https://raw.githubusercontent.com/lebrunel/ollama-ex/main/media/poster.webp)
 
@@ -21,7 +22,7 @@ defmodule Ollama do
   ```elixir
   def deps do
     [
-      {:ollama, "#{Keyword.fetch!(Mix.Project.config(), :version)}"}
+      {:ollama, "#{@version}"}
     ]
   end
   ```
@@ -201,6 +202,9 @@ defmodule Ollama do
 
   @default_req_opts [
     base_url: "http://localhost:11434/api",
+    headers: [
+      {"user-agent", "ollama-ex/#{@version}"}
+    ],
     receive_timeout: 60_000,
   ]
 
@@ -240,9 +244,11 @@ defmodule Ollama do
 
   @spec init_req(keyword()) :: Req.Request.t()
   defp init_req(opts) do
+    {headers, opts} = Keyword.pop(opts, :headers, [])
     @default_req_opts
     |> Keyword.merge(opts)
     |> Req.new()
+    |> Req.update(headers: headers)
   end
 
 
