@@ -367,6 +367,11 @@ defmodule Ollama do
       type: :string,
       doc: "Set the expected format of the response (`json`).",
     ],
+    raw: [
+      type: :boolean,
+      default: false,
+      doc: "if true no formatting will be applied to the prompt. You may choose to use the raw parameter if you are specifying a full templated prompt in your request to the API",
+    ],
     stream: [
       type: {:or, [:boolean, :pid]},
       default: false,
