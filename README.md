@@ -20,7 +20,7 @@ The package can be installed by adding `ollama` to your list of dependencies in 
 ```elixir
 def deps do
   [
-    {:ollama, "~> 0.5.1"}
+    {:ollama, "~> 0.5"}
   ]
 end
 ```
