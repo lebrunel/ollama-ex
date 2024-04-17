@@ -248,7 +248,7 @@ defmodule Ollama do
     @default_req_opts
     |> Keyword.merge(opts)
     |> Req.new()
-    |> Req.update(headers: headers)
+    |> Req.merge(headers: headers)
   end
 
 

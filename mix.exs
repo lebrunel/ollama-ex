@@ -36,8 +36,8 @@ defmodule Ollama.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:bandit, "~> 1.2", only: :test},
-      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
+      {:bandit, "~> 1.4", only: :test},
+      {:ex_doc, "~> 0.32", only: :dev, runtime: false},
       {:jason, "~> 1.4"},
       {:nimble_options, "~> 1.1"},
       {:plug, "~> 1.15"},
