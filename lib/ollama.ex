@@ -830,7 +830,7 @@ defmodule Ollama do
 
   defp stream_merge(res, data), do: put_in(res.body, data)
 
-  # TODO
+  # Recieve messages into a stream
   defp stream_next(%Task{pid: pid, ref: ref} = task) do
     receive do
       {^pid, {:data, data}} ->
@@ -852,6 +852,7 @@ defmodule Ollama do
     end
   end
 
+  # Tidy up when the streaming request is finished
   defp stream_end(%Task{ref: ref}), do: Process.demonitor(ref, [:flush])
 
 end
