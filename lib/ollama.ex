@@ -29,17 +29,6 @@ defmodule Ollama do
 
   ## Quickstart
 
-  > #### API change {: .info}
-  >
-  > The last two minor versions have introduced breaking API changes. We're
-  close to an API that feels nice, so hopefully no more breaking changes 🙏🏻.
-  >
-  > - `0.5.0` - Streaming requests continues to return a `t:Task.t/0` when the
-  `:stream` option is a `t:pid/0`, but now returns an `t:Enumerable.t/0` when
-  `:stream` is `true`. Refer to the [section on Streaming](#module-streaming).
-  > - `0.4.0` - The `Ollama.API` module has been deprecated in favour of the top
-  level `Ollama` module. `Ollama.API` will be removed in version 1.
-
   Assuming you have Ollama running on localhost, and that you have installed a
   model, use `completion/2` or `chat/2` interact with the model.
 
