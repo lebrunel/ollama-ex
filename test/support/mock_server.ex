@@ -125,6 +125,14 @@ defmodule Ollama.MockServer do
       """
       {
         "model": "llama2",
+        "created_at": "2023-08-04T08:52:20.385406455-07:00",
+        "response": " sky is",
+        "done": false
+      }
+      """,
+      """
+      {
+        "model": "llama2",
         "created_at": "2023-08-04T19:22:45.499127Z",
         "response": "",
         "done": true,
@@ -147,6 +155,18 @@ defmodule Ollama.MockServer do
         "message": {
           "role": "assistant",
           "content": "The",
+          "images": null
+        },
+        "done": false
+      }
+      """,
+      """
+      {
+        "model": "llama2",
+        "created_at": "2023-08-04T08:52:20.385406455-07:00",
+        "message": {
+          "role": "assistant",
+          "content": " sky is",
           "images": null
         },
         "done": false

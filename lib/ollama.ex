@@ -196,8 +196,9 @@ defmodule Ollama do
 
   @typep req_response() ::
     {:ok, Req.Response.t()} |
-    {Task.t(), boolean() | pid()} |
-    {:error, term()}
+    {:error, term()} |
+    Task.t() |
+    Enumerable.t()
 
 
   @default_req_opts [
@@ -769,8 +770,12 @@ defmodule Ollama do
       stream_opt ->
         opts = opts
         |> Keyword.update!(:json, & Map.put(&1, :stream, true))
-        |> Keyword.put(:into, send_to(dest))
-        {Task.async(Req, :request, [req, opts]), stream_opt}
+        |> Keyword.put(:into, stream_handler(dest))
+        task = Task.async(fn -> req |> Req.request(opts) |> res() end)
+        case stream_opt do
+          true -> Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)
+          _ -> task
+        end
 
       Keyword.get(opts, :json) |> is_map() ->
         opts = Keyword.update!(opts, :json, & Map.put(&1, :stream, false))
@@ -783,11 +788,8 @@ defmodule Ollama do
 
   # Normalizes the response returned from the request
   @spec res(req_response()) :: response()
-  defp res({%Task{} = task, true}) do
-    {:ok, Stream.resource(fn -> task end, &stream_next/1, &stream_end/1)}
-  end
-
-  defp res({%Task{} = task, _}), do: {:ok, task}
+  defp res(%Task{} = task), do: {:ok, task}
+  defp res(stream) when is_function(stream), do: {:ok, stream}
 
   defp res({:ok, %{status: status, body: body}}) when status in 200..299 do
     {:ok, body}
@@ -806,19 +808,38 @@ defmodule Ollama do
   defp res_bool({:error, error}), do: {:error, error}
 
   # Returns a callback to handle streaming responses
-  @spec send_to(pid()) :: fun()
-  defp send_to(pid) do
-    fn {:data, data}, acc ->
+  @spec stream_handler(pid()) :: fun()
+  defp stream_handler(pid) do
+    fn {:data, data}, {req, res} ->
       case Jason.decode(data) do
         {:ok, data} ->
           Process.send(pid, {self(), {:data, data}}, [])
+          {:cont, {req, stream_merge(res, data)}}
 
         {:error, _} ->
           Process.send(pid, {self(), {:data, data}}, [])
+          {:cont, {req, res}}
       end
-      {:cont, acc}
+
     end
   end
+
+  # Conditionally merges streaming responses for chat and completion endpoints
+  @spec stream_merge(Req.Response.t(), map()) :: Req.Response.t()
+  defp stream_merge(%Req.Response{body: body} = res, %{"done" => _} = data)
+    when is_map(body)
+  do
+    update_in(res.body, fn body ->
+      Map.merge(body, data, fn
+        "response", prev, next -> prev <> next
+        "message", prev, next ->
+          update_in(prev, ["content"], & &1 <> next["content"])
+        _key, _prev, next -> next
+      end)
+    end)
+  end
+
+  defp stream_merge(res, data), do: put_in(res.body, data)
 
   # TODO
   defp stream_next(%Task{pid: pid, ref: ref} = task) do

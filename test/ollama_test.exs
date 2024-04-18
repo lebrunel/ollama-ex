@@ -266,7 +266,7 @@ defmodule OllamaTest do
       ])
 
       assert is_function(stream, 2)
-      assert Enum.to_list(stream) |> length() == 2
+      assert Enum.to_list(stream) |> length() == 3
     end
 
     test "with stream: pid, returns a task and sends messages to pid", %{client: client} do
@@ -280,8 +280,8 @@ defmodule OllamaTest do
       ])
 
       assert match?(%Task{}, task)
-      Task.await(task)
-      assert Ollama.StreamCatcher.get_state(pid) |> length() == 2
+      assert {:ok, %{"message" => %{"content" => _}}} = Task.await(task)
+      assert Ollama.StreamCatcher.get_state(pid) |> length() == 3
       GenServer.stop(pid)
     end
   end
