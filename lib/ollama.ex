@@ -251,10 +251,6 @@ defmodule Ollama do
       required: true,
       doc: "List of messages - used to keep a chat memory.",
     ],
-    template: [
-      type: :string,
-      doc: "Prompt template, overriding the model default.",
-    ],
     format: [
       type: :string,
       doc: "Set the expected format of the response (`json`).",
@@ -418,6 +414,10 @@ defmodule Ollama do
       type: :string,
       required: true,
       doc: "Contents of the Modelfile.",
+    ],
+    quantize: [
+      type: :string,
+      doc: "Quantize f16 and f32 models when importing them.",
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
