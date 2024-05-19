@@ -476,6 +476,24 @@ defmodule Ollama do
   end
 
 
+  @doc """
+  Lists currently running models, their memory footprint, and process details.
+
+  ## Example
+
+      iex> Ollama.list_running(client)
+      {:ok, %{"models" => [
+        %{"name" => "nomic-embed-text:latest", ...},
+      ]}}
+  """
+  @spec list_running(client()) :: response()
+  def list_running(%__MODULE__{} = client) do
+    client
+    |> req(:get, "/ps")
+    |> res()
+  end
+
+
   schema :show_model, [
     name: [
       type: :string,

@@ -90,6 +90,30 @@ defmodule Ollama.MockServer do
     }
     """,
 
+    list_running: """
+    {
+      "models": [
+        {
+          "details": {
+            "families": ["nomic-bert"],
+            "family": "nomic-bert",
+            "format": "gguf",
+            "parameter_size": "137M",
+            "parent_model": "",
+            "quantization_level": "F16"
+          },
+          "digest": "0a109f422b47e3a30ba2b10eca18548e944e8a23073ee3f3e947efcf3c45e59f",
+          "expires_at": "2024-05-19T16:16:01.281389+01:00",
+          "model": "nomic-embed-text:latest",
+          "modified_at": "0001-01-01T00:00:00Z",
+          "name": "nomic-embed-text:latest",
+          "size": 904776704,
+          "size_vram": 904776704
+        }
+      ]
+    }
+    """,
+
     pull_model: """
     {
       "status": "success"
@@ -239,6 +263,7 @@ defmodule Ollama.MockServer do
   post "/generate", do: handle_request(conn, :completion)
   post "/create", do: handle_request(conn, :create_model)
   get "/tags", do: handle_request(conn, :list_models)
+  get "/ps", do: handle_request(conn, :list_running)
   post "/show", do: handle_request(conn, :show_model)
 
   post "/copy" do

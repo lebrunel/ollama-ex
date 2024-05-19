@@ -143,6 +143,20 @@ defmodule OllamaTest do
     end
   end
 
+  describe "list_running/1" do
+    test "lists models that are running", %{client: client} do
+      assert {:ok, %{"models" => models}} = Ollama.list_running(client)
+      assert is_list(models)
+      for model <- models do
+        assert is_binary(model["name"])
+        assert is_binary(model["digest"])
+        assert is_number(model["size"])
+        assert is_number(model["size_vram"])
+        assert is_map(model["details"])
+      end
+    end
+  end
+
   describe "show_model/2" do
     test "shows information about a model", %{client: client} do
       assert {:ok, model} = Ollama.show_model(client, name: "llama2")
