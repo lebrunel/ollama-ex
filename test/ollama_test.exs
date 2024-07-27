@@ -269,7 +269,7 @@ defmodule OllamaTest do
     end
   end
 
-  describe "streaming methods" do
+  describe "streaming" do
     test "with stream: true, returns a lazy enumerable", %{client: client} do
       assert {:ok, stream} = Ollama.chat(client, [
         model: "llama2",
@@ -297,6 +297,52 @@ defmodule OllamaTest do
       assert {:ok, %{"message" => %{"content" => _}}} = Task.await(task)
       assert Ollama.StreamCatcher.get_state(pid) |> length() == 3
       GenServer.stop(pid)
+    end
+  end
+
+  describe "using tools" do
+    test "function calling roundtrip", %{client: client} do
+      prompt = %{role: "user", content: "What is the current stock price for Apple?"}
+      tools = [
+        %{type: "function", function: %{
+          name: "get_stock_price",
+          description: "Fetches the live stock price for the given ticker.",
+          parameters: %{
+            type: "object",
+            properties: %{
+              ticker: %{
+                type: "string",
+                description: "The stock ticker to fetch the price of."
+              }
+            },
+            required: ["ticker"],
+          }
+        }}
+      ]
+      # Initial prompt
+      assert {:ok, res} = Ollama.chat(client, [
+        model: "mistral-nemo",
+        messages: [prompt],
+        tools: tools,
+      ])
+      tool_calls = get_in(res, ["message", "tool_calls"])
+      assert is_list(tool_calls)
+      assert get_in(hd(tool_calls), ["function", "name"]) == "get_stock_price"
+      assert get_in(hd(tool_calls), ["function", "arguments", "ticker"]) == "AAPL"
+
+      messages = [
+        prompt,
+        %{role: "assistant", content: "", tool_calls: tool_calls},
+        %{role: "tool", content: "$1568.12"}
+      ]
+
+      # Tool result prompt
+      assert {:ok, res} = Ollama.chat(client, [
+        model: "mistral-nemo",
+        messages: messages,
+        tools: tools,
+      ])
+      assert get_in(res, ["message", "content"]) == "The current stock price for Apple (AAPL) is approximately $1568.12."
     end
   end
 

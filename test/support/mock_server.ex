@@ -36,6 +36,52 @@ defmodule Ollama.MockServer do
     }
     """,
 
+    tool_call: """
+    {
+      "created_at": "2024-07-26T19:52:04.834647Z",
+      "done": true,
+      "done_reason": "stop",
+      "eval_count": 21,
+      "eval_duration": 1687556000,
+      "load_duration": 28443959,
+      "message": {
+        "content": "",
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "function": {
+              "name": "get_stock_price",
+              "arguments": {"ticker": "AAPL"}
+            }
+          }
+        ]
+      },
+      "model": "mistral-nemo",
+      "prompt_eval_count": 80,
+      "prompt_eval_duration": 4916899000,
+      "total_duration": 6637880709
+    }
+    """,
+
+    tool_result: """
+    {
+      "created_at": "2024-07-26T19:52:07.337375Z",
+      "done": true,
+      "done_reason": "stop",
+      "eval_count": 23,
+      "eval_duration": 1877537000,
+      "load_duration": 25199584,
+      "message": {
+        "content": "The current stock price for Apple (AAPL) is approximately $1568.12.",
+        "role": "assistant"
+      },
+      "model": "mistral-nemo",
+      "prompt_eval_count": 50,
+      "prompt_eval_duration": 567447000,
+      "total_duration": 2483884417
+    }
+    """,
+
     create_model: """
     {
       "status": "success"
@@ -297,6 +343,10 @@ defmodule Ollama.MockServer do
     case conn.body_params do
       %{"model" => "not-found"} -> respond(conn, 404)
       %{"name" => "not-found"} -> respond(conn, 404)
+      %{"model" => "mistral-nemo", "messages" => messages} when length(messages) == 1 ->
+        respond(conn, :tool_call)
+      %{"model" => "mistral-nemo", "messages" => messages} when length(messages) > 1 ->
+        respond(conn, :tool_result)
       %{"stream" => true} -> stream(conn, name)
       _ -> respond(conn, name)
     end

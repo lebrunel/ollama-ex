@@ -10,9 +10,8 @@ defmodule Ollama do
   Elixir.
 
   - 🦙 API client fully implementing the Ollama API
-  - 🛜 Streaming API requests
-    - Stream to an Enumerable
-    - Or stream messages to any Elixir process
+  - 🛜 Streaming requests (stream to an Enumerable or any Elixir process)
+  - 🛠️ Tool use (Function calling) supported
 
   ## Installation
 
@@ -141,6 +140,84 @@ defmodule Ollama do
   Regardless of which approach to streaming you use, each of the streaming
   messages are a plain `t:map/0`. Refer to the [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md)
   for the schema.
+
+  ## Function calling
+
+  Ollama 0.3 and later versions support tool use and function calling on
+  compatible models. Note that Ollama currently doesn't support tool use with
+  streaming requests, so avoid setting `:stream` to `true`.
+
+  Using tools typically involves at least two round-trip requests to the model.
+  Begin by defining one or more tools using a schema similar to ChatGPT's.
+  Provide clear and concise descriptions for the tool and each argument.
+
+  ```elixir
+  iex> stock_price_tool = %{
+  ...>   type: "function",
+  ...>   function: %{
+  ...>     name: "get_stock_price",
+  ...>     description: "Fetches the live stock price for the given ticker.",
+  ...>     parameters: %{
+  ...>       type: "object",
+  ...>       properties: %{
+  ...>         ticker: %{
+  ...>           type: "string",
+  ...>           description: "The ticker symbol of a specific stock."
+  ...>         }
+  ...>       },
+  ...>       required: ["ticker"]
+  ...>     }
+  ...>   }
+  ...> }
+  ```
+
+  The first round-trip involves sending a prompt in a chat with the tool
+  definitions. The model should respond with a message containing a list of tool
+  calls.
+
+  ```elixir
+  iex> Ollama.chat(client, [
+  ...>   model: "mistral-nemo",
+  ...>   messages: [
+  ...>     %{role: "user", content: "What is the current stock price for Apple?"}
+  ...>   ],
+  ...>   tools: [stock_price_tool],
+  ...> ])
+  {:ok, %{"message" => %{
+    "role" => "assistant",
+    "content" => "",
+    "tool_calls" => [
+      %{"function" => %{
+        "name" => "get_stock_price",
+        "arguments" => %{"ticker" => "AAPL"}
+      }}
+    ]
+  }, ...}}
+  ```
+
+  Your implementation must intercept these tool calls and execute a
+  corresponding function in your codebase with the specified arguments. The next
+  round-trip involves passing the function's result back to the model as a
+  message with a `:role` of `"tool"`.
+
+  ```elixir
+  iex> Ollama.chat(client, [
+  ...>   model: "mistral-nemo",
+  ...>   messages: [
+  ...>     %{role: "user", content: "What is the current stock price for Apple?"},
+  ...>     %{role: "assistant", content: "", tool_calls: [%{"function" => %{"name" => "get_stock_price", "arguments" => %{"ticker" => "AAPL"}}}]},
+  ...>     %{role: "tool", content: "$217.96"},
+  ...>   ],
+  ...>   tools: [stock_price_tool],
+  ...> ])
+  {:ok, %{"message" => %{
+    "role" => "assistant",
+    "content" => "The current stock price for Apple (AAPL) is approximately $217.96.",
+  }, ...}}
+  ```
+
+  After receiving the function tool's value, the model will respond to the
+  user's original prompt, incorporating the function result into its response.
   """
   use Ollama.Schemas
   alias Ollama.Blob
@@ -154,9 +231,9 @@ defmodule Ollama do
 
   schema :chat_message, [
     role: [
-      type: :string,
+      type: {:in, ["system", "user", "assistant", "tool"]},
       required: true,
-      doc: "The role of the message, either `system`, `user` or `assistant`."
+      doc: "The role of the message, either `system`, `user`, `assistant` or `tool`."
     ],
     content: [
       type: :string,
@@ -166,6 +243,10 @@ defmodule Ollama do
     images: [
       type: {:list, :string},
       doc: "*(optional)* List of Base64 encoded images (for multimodal models only).",
+    ],
+    tool_calls: [
+      type: {:list, {:map, :any, :any}},
+      doc: "*(optional)* List of tools the model wants to use."
     ]
   ]
 
@@ -176,7 +257,46 @@ defmodule Ollama do
 
   #{doc(:chat_message)}
   """
-  @type message() :: map()
+  @type message() :: unquote(NimbleOptions.option_typespec(schema(:chat_message)))
+
+
+  schema :tool_def, [
+    type: [
+      type: {:in, ["function"]},
+      required: true,
+      doc: "Type of tool. (Currently only `\"function\"` supported)."
+    ],
+    function: [
+      type: :map,
+      keys: [
+        name: [
+          type: :string,
+          required: true,
+          doc: "The name of the function to be called.",
+        ],
+        description: [
+          type: :string,
+          doc: "A description of what the function does."
+        ],
+        parameters: [
+          type: :map,
+          required: true,
+          doc: "The parameters the functions accepts.",
+        ],
+      ],
+      required: true,
+    ]
+  ]
+
+  @typedoc """
+  Tool definition
+
+  A tool definition is a `t:map/0` with the following fields:
+
+  #{doc(:tool_def)}
+  """
+  @type tool() :: unquote(NimbleOptions.option_typespec(schema(:tool_def)))
+
 
   @typedoc "Client response"
   @type response() ::
@@ -251,6 +371,10 @@ defmodule Ollama do
       required: true,
       doc: "List of messages - used to keep a chat memory.",
     ],
+    tools: [
+      type: {:list, {:map, schema(:tool_def).schema}},
+      doc: "Tools for the model to use if supported (requires `stream` to be `false`)",
+    ],
     format: [
       type: :string,
       doc: "Set the expected format of the response (`json`).",
@@ -283,6 +407,10 @@ defmodule Ollama do
   Each message is a map with the following fields:
 
   #{doc(:chat_message)}
+
+  ## Tool definitions
+
+  #{doc(:tool_def)}
 
   ## Examples
 
