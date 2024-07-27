@@ -5,13 +5,13 @@ defmodule Ollama do
 
   ![License](https://img.shields.io/github/license/lebrunel/ollama-ex?color=informational)
 
-  [Ollama](https://ollama.ai) is a nifty little tool for running large language
-  models locally, and this is a nifty little library for working with Ollama in
-  Elixir.
+  [Ollama](https://ollama.ai) is a powerful tool for running large language
+  models locally or on your own infrastructure. This library provides an
+  interface for working with Ollama in Elixir.
 
-  - 🦙 API client fully implementing the Ollama API
-  - 🛜 Streaming requests (stream to an Enumerable or any Elixir process)
-  - 🛠️ Tool use (Function calling) supported
+  - 🦙 Full implementation of the Ollama API
+  - 🛜 Support for streaming requests (to an Enumerable or any Elixir process)
+  - 🛠️ Tool use (Function calling) capability
 
   ## Installation
 
@@ -66,11 +66,11 @@ defmodule Ollama do
 
   ## Streaming
 
-  On endpoints where streaming is supported, a streaming request can be initiated
-  by setting the `:stream` option to `true` or a `t:pid/0`.
+  Streaming is supported on certain endpoints by setting the `:stream` option to
+  `true` or a `t:pid/0`.
 
-  When `:stream` is `true` a lazy `t:Enumerable.t/0` is returned which can be
-  used with any `Stream` functions.
+  When `:stream` is set to `true`, a lazy `t:Enumerable.t/0` is returned, which
+  can be used with any `Stream` functions.
 
   ```elixir
   iex> Ollama.completion(client, [
@@ -89,14 +89,13 @@ defmodule Ollama do
   :ok
   ```
 
-  Because the above approach builds the `t:Enumerable.t/0` by calling `receive`,
-  using this approach inside `GenServer` callbacks may cause the GenServer to
-  misbehave. Instead of setting the `:stream` option to `true`, you can set it
-  to a `t:pid/0`. A `t:Task.t/0` is returned which will send messages to the
-  specified process.
+  This approach above builds the `t:Enumerable.t/0` by calling `receive`, which
+  may cause issues in `GenServer` callbacks. As an alternative, you can set the
+  `:stream` option to a `t:pid/0`. This returns a `t:Task.t/0` that sends
+  messages to the specified process.
 
-  The example below demonstrates making a streaming request in a LiveView event,
-  and sends each of the streaming messages back to the same LiveView process.
+  The following example demonstrates a streaming request in a LiveView event,
+  sending each streaming message back to the same LiveView process:
 
   ```elixir
   defmodule MyApp.ChatLive do
@@ -137,9 +136,9 @@ defmodule Ollama do
   end
   ```
 
-  Regardless of which approach to streaming you use, each of the streaming
-  messages are a plain `t:map/0`. Refer to the [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md)
-  for the schema.
+  Regardless of the streaming approach used, each streaming message is a plain
+  `t:map/0`. For the message schema, refer to the
+  [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md).
 
   ## Function calling
 

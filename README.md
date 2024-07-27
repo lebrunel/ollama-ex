@@ -6,12 +6,11 @@
 ![License](https://img.shields.io/github/license/lebrunel/ollama-ex?color=informational)
 ![Build Status](https://img.shields.io/github/actions/workflow/status/lebrunel/ollama-ex/elixir.yml?branch=main)
 
-[Ollama](https://ollama.ai) is a nifty little tool for running large language models locally, and this is a nifty little library for working with Ollama in Elixir.
+[Ollama](https://ollama.ai) is a powerful tool for running large language models locally or on your own infrastructure. This library provides an interface for working with Ollama in Elixir.
 
-- 🦙 API client fully implementing the Ollama API
-- 🛜 Streaming API requests
-  - Stream to an Enumerable
-  - Or stream messages to any Elixir process
+- 🦙 Full implementation of the Ollama API
+- 🛜 Support for streaming requests (to an Enumerable or any Elixir process)
+- 🛠️ Tool use (Function calling) capability
 
 ## Installation
 
@@ -20,7 +19,7 @@ The package can be installed by adding `ollama` to your list of dependencies in 
 ```elixir
 def deps do
   [
-    {:ollama, "~> 0.6"}
+    {:ollama, "~> 0.7"}
   ]
 end
 ```
@@ -64,9 +63,9 @@ Ollama.chat(client, [
 
 ## Streaming
 
-On endpoints where streaming is supported, a streaming request can be initiated by setting the `:stream` option to `true` or a `t:pid/0`.
+Streaming is supported on certain endpoints by setting the `:stream` option to `true` or a `t:pid/0`.
 
-When `:stream` is `true` a lazy `t:Enumerable.t/0` is returned which can be used with any `Stream` functions.
+When `:stream` is set to `true`, a lazy `t:Enumerable.t/0` is returned, which can be used with any `Stream` functions.
 
 ```elixir
 {:ok, stream} = Ollama.completion(client, [
@@ -81,9 +80,9 @@ stream
 # :ok
 ```
 
-Because the above approach builds the `t:Enumerable.t/0` by calling `receive`, using this approach inside `GenServer` callbacks may cause the GenServer to misbehave. Instead of setting the `:stream` option to `true`, you can set it to a `t:pid/0`. A `t:Task.t/0` is returned which will send messages to the specified process.
+This approach above builds the `t:Enumerable.t/0` by calling `receive`, which may cause issues in `GenServer` callbacks. As an alternative, you can set the `:stream` option to a `t:pid/0`. This returns a `t:Task.t/0` that sends messages to the specified process.
 
-The example below demonstrates making a streaming request in a LiveView event, and sends each of the streaming messages back to the same LiveView process.
+The following example demonstrates a streaming request in a LiveView event, sending each streaming message back to the same LiveView process:
 
 ```elixir
 defmodule MyApp.ChatLive do
@@ -124,7 +123,75 @@ defmodule MyApp.ChatLive do
 end
 ```
 
-Regardless of which approach to streaming you use, each of the streaming messages are a plain `t:map/0`. Refer to the [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md) for the schema.
+Regardless of the streaming approach used, each streaming message is a plain `t:map/0`. For the message schema, refer to the [Ollama API docs](https://github.com/ollama/ollama/blob/main/docs/api.md).
+
+## Function calling
+
+Ollama 0.3 and later versions support tool use and function calling on compatible models. Note that Ollama currently doesn't support tool use with streaming requests, so avoid setting `:stream` to `true`.
+
+Using tools typically involves at least two round-trip requests to the model. Begin by defining one or more tools using a schema similar to ChatGPT's. Provide clear and concise descriptions for the tool and each argument.
+
+```elixir
+stock_price_tool = %{
+  type: "function",
+  function: %{
+    name: "get_stock_price",
+    description: "Fetches the live stock price for the given ticker.",
+    parameters: %{
+      type: "object",
+      properties: %{
+        ticker: %{
+          type: "string",
+          description: "The ticker symbol of a specific stock."
+        }
+      },
+      required: ["ticker"]
+    }
+  }
+}
+```
+
+The first round-trip involves sending a prompt in a chat with the tool definitions. The model should respond with a message containing a list of tool calls.
+
+```elixir
+Ollama.chat(client, [
+  model: "mistral-nemo",
+  messages: [
+    %{role: "user", content: "What is the current stock price for Apple?"}
+  ],
+  tools: [stock_price_tool],
+])
+# {:ok, %{"message" => %{
+#   "role" => "assistant",
+#   "content" => "",
+#   "tool_calls" => [
+#     %{"function" => %{
+#       "name" => "get_stock_price",
+#       "arguments" => %{"ticker" => "AAPL"}
+#     }}
+#   ]
+# }, ...}}
+```
+
+Your implementation must intercept these tool calls and execute a corresponding function in your codebase with the specified arguments. The next round-trip involves passing the function's result back to the model as a message with a `:role` of `"tool"`.
+
+```elixir
+Ollama.chat(client, [
+  model: "mistral-nemo",
+  messages: [
+    %{role: "user", content: "What is the current stock price for Apple?"},
+    %{role: "assistant", content: "", tool_calls: [%{"function" => %{"name" => "get_stock_price", "arguments" => %{"ticker" => "AAPL"}}}]},
+    %{role: "tool", content: "$217.96"},
+  ],
+  tools: [stock_price_tool],
+])
+# {:ok, %{"message" => %{
+#   "role" => "assistant",
+#   "content" => "The current stock price for Apple (AAPL) is approximately $217.96.",
+# }, ...}}
+```
+
+After receiving the function tool's value, the model will respond to the user's original prompt, incorporating the function result into its response.
 
 ## License
 
