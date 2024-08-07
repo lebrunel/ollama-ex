@@ -842,26 +842,26 @@ defmodule Ollama do
   end
 
 
-  schema :embeddings, [
-    model: [
-      type: :string,
-      required: true,
-      doc: "The name of the model used to generate the embeddings.",
-    ],
-    prompt: [
-      type: :string,
-      required: true,
-      doc: "The prompt used to generate the embedding.",
-    ],
-    keep_alive: [
-      type: {:or, [:integer, :string]},
-      doc: "How long to keep the model loaded.",
-    ],
-    options: [
-      type: {:map, {:or, [:atom, :string]}, :any},
-      doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
-    ],
-  ]
+schema :embeddings, [
+  model: [
+    type: :string,
+    required: true,
+    doc: "The name of the model used to generate the embeddings.",
+  ],
+  prompt: [
+    type: :string,
+    required: true,
+    doc: "The prompt used to generate the embedding.",
+  ],
+  keep_alive: [
+    type: {:or, [:integer, :string]},
+    doc: "How long to keep the model loaded.",
+  ],
+  options: [
+    type: {:map, {:or, [:atom, :string]}, :any},
+    doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
+  ],
+]
 
   @doc """
   Generate embeddings from a model for the given prompt.
@@ -886,6 +886,82 @@ defmodule Ollama do
     with {:ok, params} <- NimbleOptions.validate(params, schema(:embeddings)) do
       client
       |> req(:post, "/embeddings", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
+
+
+schema :embed, [
+  model: [
+    type: :string,
+    required: true,
+    doc: "The name of the model used to generate the embeddings.",
+  ],
+  input: [
+    type: {:or, [:string, {:list, :string}]},
+    required: true,
+    doc: "The text or list of texts to generate embeddings for.",
+  ],
+  keep_alive: [
+    type: {:or, [:integer, :string]},
+    doc: "How long to keep the model loaded.",
+  ],
+  options: [
+    type: {:map, {:or, [:atom, :string]}, :any},
+    doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
+  ],
+]
+
+  @doc """
+  Generate embeddings from a model for the given input or list of inputs.
+
+  ## Options
+
+  #{doc(:embeddings)}
+
+  ## Returns
+
+    - model: string
+    - embeddings: list of floats or a list of list of floats
+    - total_duration: integer,
+    - load_duration: integer,
+    - prompt_eval_count: integer
+
+  ## Example
+
+      iex> Ollama.embed(client, [
+      ...>   model: "nomic-embed-text",
+      ...>   input: ["Here is an article about llamas...", "And an article about guanacos"]
+      ...> ])
+      {:ok,
+        %{
+          "embeddings" => [
+            [0.025707057, 0.05995968, -0.18906593, -0.028224105, 0.024518937, -0.018712264, -0.05936412,
+              -0.027677963, -0.02655216, -0.0055157566, 0.012669619, 0.012822967, 0.0737529, 0.0018657907,
+              0.0514689, -0.044939682, -0.032578424, -0.0143272225, 0.009716135, 0.027503505, -0.08524467,
+              0.0033925518, -0.008260408, -0.029071465, 0.0614533, -2.971343e-4, -0.07822173, 0.04677405,
+              -0.013675912, -0.042665306, 0.077197336, -0.0069978028, -0.05529147, -0.00885516, -0.01875029,
+              -0.012202057, 0.08162492, -0.001560734, 0.0104923, -0.015027088, 0.06869281, -0.004169374,
+              -0.003136883, -0.0034486335, 0.032203086, -0.0067093694, ...],
+            [-0.012278048, 0.08758286, -0.19281594, -9.596305e-4, 0.052421615, -0.013487989, -0.04341169,
+              -0.04910143, -0.030368308, -0.053659562, 0.04601163, -0.0036999173, 0.06349225, 0.02332796,
+              0.070661716, -0.0535382, -0.012952875, -0.020421932, 0.01872197, 0.074180625, -0.04329144,
+              -0.009214826, 0.004547367, 0.008833901, 0.073498674, -0.009349158, -0.059823982, 0.04068651,
+              -0.022621924, -0.043966107, 5.263723e-4, -0.026195815, -0.04643947, 0.027842415, -0.036027674,
+              -1.2721235e-4, 0.063953005, -0.004438271, 0.010704825, -0.03306255, 0.07427176, 0.039013054,
+              -0.012652882, -0.045378733, 0.015488261, ...]
+          ],
+          "load_duration" => 10725400,
+          "model" => "nomic-embed-text:latest",
+          "prompt_eval_count" => 22,
+          "total_duration" => 75792700
+        }}
+  """
+  @spec embed(client(), keyword()) :: response()
+  def embed(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:embed)) do
+      client
+      |> req(:post, "/embed", json: Enum.into(params, %{}))
       |> res()
     end
   end
