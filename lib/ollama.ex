@@ -224,11 +224,10 @@ defmodule Ollama do
 
   @typedoc "Client struct"
   @type client() :: %__MODULE__{
-    req: Req.Request.t()
-  }
+          req: Req.Request.t()
+        }
 
-
-  schema :chat_message, [
+  schema(:chat_message,
     role: [
       type: {:in, ["system", "user", "assistant", "tool"]},
       required: true,
@@ -237,17 +236,17 @@ defmodule Ollama do
     content: [
       type: :string,
       required: true,
-      doc: "The content of the message.",
+      doc: "The content of the message."
     ],
     images: [
       type: {:list, :string},
-      doc: "*(optional)* List of Base64 encoded images (for multimodal models only).",
+      doc: "*(optional)* List of Base64 encoded images (for multimodal models only)."
     ],
     tool_calls: [
       type: {:list, {:map, :any, :any}},
       doc: "*(optional)* List of tools the model wants to use."
     ]
-  ]
+  )
 
   @typedoc """
   Chat message
@@ -258,8 +257,7 @@ defmodule Ollama do
   """
   @type message() :: unquote(NimbleOptions.option_typespec(schema(:chat_message)))
 
-
-  schema :tool_def, [
+  schema(:tool_def,
     type: [
       type: {:in, ["function"]},
       required: true,
@@ -271,7 +269,7 @@ defmodule Ollama do
         name: [
           type: :string,
           required: true,
-          doc: "The name of the function to be called.",
+          doc: "The name of the function to be called."
         ],
         description: [
           type: :string,
@@ -280,12 +278,12 @@ defmodule Ollama do
         parameters: [
           type: :map,
           required: true,
-          doc: "The parameters the functions accepts.",
-        ],
+          doc: "The parameters the functions accepts."
+        ]
       ],
-      required: true,
+      required: true
     ]
-  ]
+  )
 
   @typedoc """
   Tool definition
@@ -296,23 +294,21 @@ defmodule Ollama do
   """
   @type tool() :: unquote(NimbleOptions.option_typespec(schema(:tool_def)))
 
-
   @typedoc "Client response"
   @type response() ::
-    {:ok, map() | boolean() | Enumerable.t() | Task.t()} |
-    {:error, term()}
+          {:ok, map() | boolean() | Enumerable.t() | Task.t()}
+          | {:error, term()}
 
   @typep req_response() ::
-    {:ok, Req.Response.t() | Task.t() | Enumerable.t()} |
-    {:error, term()}
-
+           {:ok, Req.Response.t() | Task.t() | Enumerable.t()}
+           | {:error, term()}
 
   @default_req_opts [
     base_url: "http://localhost:11434/api",
     headers: [
       {"user-agent", "ollama-ex/#{@version}"}
     ],
-    receive_timeout: 60_000,
+    receive_timeout: 60_000
   ]
 
   @doc """
@@ -352,46 +348,47 @@ defmodule Ollama do
   @spec init_req(keyword()) :: Req.Request.t()
   defp init_req(opts) do
     {headers, opts} = Keyword.pop(opts, :headers, [])
+
     @default_req_opts
     |> Keyword.merge(opts)
     |> Req.new()
     |> Req.merge(headers: headers)
   end
 
-
-  schema :chat, [
+  schema(:chat,
     model: [
       type: :string,
       required: true,
-      doc: "The ollama model name.",
+      doc: "The ollama model name."
     ],
     messages: [
       type: {:list, {:map, schema(:chat_message).schema}},
       required: true,
-      doc: "List of messages - used to keep a chat memory.",
+      doc: "List of messages - used to keep a chat memory."
     ],
     tools: [
       type: {:list, {:map, schema(:tool_def).schema}},
-      doc: "Tools for the model to use if supported (requires `stream` to be `false`)",
+      doc: "Tools for the model to use if supported (requires `stream` to be `false`)"
     ],
     format: [
       type: :string,
-      doc: "Set the expected format of the response (`json`).",
+      doc: "Set the expected format of the response (`json`)."
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
       default: false,
-      doc: "See [section on streaming](#module-streaming).",
+      doc: "See [section on streaming](#module-streaming)."
     ],
     keep_alive: [
       type: {:or, [:integer, :string]},
-      doc: "How long to keep the model loaded.",
+      doc: "How long to keep the model loaded."
     ],
     options: [
       type: {:map, {:or, [:atom, :string]}, :any},
-      doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
-    ],
-  ]
+      doc:
+        "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values)."
+    ]
+  )
 
   @doc """
   Generates the next message in a chat using the specified model. Optionally
@@ -446,56 +443,58 @@ defmodule Ollama do
     end
   end
 
-
-  schema :completion, [
+  schema(:completion,
     model: [
       type: :string,
       required: true,
-      doc: "The ollama model name.",
+      doc: "The ollama model name."
     ],
     prompt: [
       type: :string,
       required: true,
-      doc: "Prompt to generate a response for.",
+      doc: "Prompt to generate a response for."
     ],
     images: [
       type: {:list, :string},
-      doc: "A list of Base64 encoded images to be included with the prompt (for multimodal models only).",
+      doc:
+        "A list of Base64 encoded images to be included with the prompt (for multimodal models only)."
     ],
     system: [
       type: :string,
-      doc: "System prompt, overriding the model default.",
+      doc: "System prompt, overriding the model default."
     ],
     template: [
       type: :string,
-      doc: "Prompt template, overriding the model default.",
+      doc: "Prompt template, overriding the model default."
     ],
     context: [
       type: {:list, {:or, [:integer, :float]}},
-      doc: "The context parameter returned from a previous `f:completion/2` call (enabling short conversational memory).",
+      doc:
+        "The context parameter returned from a previous `f:completion/2` call (enabling short conversational memory)."
     ],
     format: [
       type: :string,
-      doc: "Set the expected format of the response (`json`).",
+      doc: "Set the expected format of the response (`json`)."
     ],
     raw: [
       type: :boolean,
-      doc: "Set `true` if specifying a fully templated prompt. (`:template` is ingored)",
+      doc: "Set `true` if specifying a fully templated prompt. (`:template` is ingored)"
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
       default: false,
-      doc: "See [section on streaming](#module-streaming).",
+      doc: "See [section on streaming](#module-streaming)."
     ],
     keep_alive: [
       type: {:or, [:integer, :string]},
-      doc: "How long to keep the model loaded.",
+      doc: "How long to keep the model loaded."
     ],
     options: [
       type: {:map, {:or, [:atom, :string]}, :any},
-      doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
-    ],
-  ]
+      doc:
+        "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values)."
+    ]
+  )
 
   @doc """
   Generates a completion for the given prompt using the specified model.
@@ -530,28 +529,27 @@ defmodule Ollama do
     end
   end
 
-
-  schema :create_model, [
+  schema(:create_model,
     name: [
       type: :string,
       required: true,
-      doc: "Name of the model to create.",
+      doc: "Name of the model to create."
     ],
     modelfile: [
       type: :string,
       required: true,
-      doc: "Contents of the Modelfile.",
+      doc: "Contents of the Modelfile."
     ],
     quantize: [
       type: :string,
-      doc: "Quantize f16 and f32 models when importing them.",
+      doc: "Quantize f16 and f32 models when importing them."
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
       default: false,
-      doc: "See [section on streaming](#module-streaming).",
-    ],
-  ]
+      doc: "See [section on streaming](#module-streaming)."
+    ]
+  )
 
   @doc """
   Creates a model using the given name and model file. Optionally
@@ -583,7 +581,6 @@ defmodule Ollama do
     end
   end
 
-
   @doc """
   Lists all models that Ollama has available.
 
@@ -602,7 +599,6 @@ defmodule Ollama do
     |> res()
   end
 
-
   @doc """
   Lists currently running models, their memory footprint, and process details.
 
@@ -620,14 +616,13 @@ defmodule Ollama do
     |> res()
   end
 
-
-  schema :show_model, [
+  schema(:show_model,
     name: [
       type: :string,
       required: true,
-      doc: "Name of the model to show.",
+      doc: "Name of the model to show."
     ]
-  ]
+  )
 
   @doc """
   Shows all information for a specific model.
@@ -661,18 +656,18 @@ defmodule Ollama do
     end
   end
 
-  schema :copy_model, [
+  schema(:copy_model,
     source: [
       type: :string,
       required: true,
-      doc: "Name of the model to copy from.",
+      doc: "Name of the model to copy from."
     ],
     destination: [
       type: :string,
       required: true,
-      doc: "Name of the model to copy to.",
-    ],
-  ]
+      doc: "Name of the model to copy to."
+    ]
+  )
 
   @doc """
   Creates a model with another name from an existing model.
@@ -698,14 +693,13 @@ defmodule Ollama do
     end
   end
 
-
-  schema :delete_model, [
+  schema(:delete_model,
     name: [
       type: :string,
       required: true,
-      doc: "Name of the model to delete.",
+      doc: "Name of the model to delete."
     ]
-  ]
+  )
 
   @doc """
   Deletes a model and its data.
@@ -728,19 +722,18 @@ defmodule Ollama do
     end
   end
 
-
-  schema :pull_model, [
+  schema(:pull_model,
     name: [
       type: :string,
       required: true,
-      doc: "Name of the model to pull.",
+      doc: "Name of the model to pull."
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
       default: false,
-      doc: "See [section on streaming](#module-streaming).",
-    ],
-  ]
+      doc: "See [section on streaming](#module-streaming)."
+    ]
+  )
 
   @doc """
   Downloads a model from the ollama library. Optionally streamable.
@@ -767,19 +760,18 @@ defmodule Ollama do
     end
   end
 
-
-  schema :push_model, [
+  schema(:push_model,
     name: [
       type: :string,
       required: true,
-      doc: "Name of the model to pull.",
+      doc: "Name of the model to pull."
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
       default: false,
-      doc: "See [section on streaming](#module-streaming).",
-    ],
-  ]
+      doc: "See [section on streaming](#module-streaming)."
+    ]
+  )
 
   @doc """
   Upload a model to a model library. Requires registering for
@@ -807,7 +799,6 @@ defmodule Ollama do
     end
   end
 
-
   @doc """
   Checks a blob exists in ollama by its digest or binary data.
 
@@ -822,9 +813,9 @@ defmodule Ollama do
   @spec check_blob(client(), Blob.digest() | binary()) :: response()
   def check_blob(%__MODULE__{} = client, "sha256:" <> _ = digest),
     do: req(client, :head, "/blobs/#{digest}") |> res_bool()
+
   def check_blob(%__MODULE__{} = client, blob) when is_binary(blob),
     do: check_blob(client, Blob.digest(blob))
-
 
   @doc """
   Creates a blob from its binary data.
@@ -841,27 +832,27 @@ defmodule Ollama do
     |> res_bool()
   end
 
-
-  schema :embeddings, [
+  schema(:embeddings,
     model: [
       type: :string,
       required: true,
-      doc: "The name of the model used to generate the embeddings.",
+      doc: "The name of the model used to generate the embeddings."
     ],
     prompt: [
       type: :string,
       required: true,
-      doc: "The prompt used to generate the embedding.",
+      doc: "The prompt used to generate the embedding."
     ],
     keep_alive: [
       type: {:or, [:integer, :string]},
-      doc: "How long to keep the model loaded.",
+      doc: "How long to keep the model loaded."
     ],
     options: [
       type: {:map, {:or, [:atom, :string]}, :any},
-      doc: "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values).",
-    ],
-  ]
+      doc:
+        "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values)."
+    ]
+  )
 
   @doc """
   Generate embeddings from a model for the given prompt.
@@ -890,6 +881,58 @@ defmodule Ollama do
     end
   end
 
+  schema(:embed,
+    model: [
+      type: :string,
+      required: true,
+      doc: "The name of the model used to generate the embeddings."
+    ],
+    input: [
+      type: {:or, [:string, {:list, :string}]},
+      required: true,
+      doc: "text or list of text to generate embeddings for"
+    ],
+    truncate: [
+      type: :boolean,
+      doc:
+        "truncates the end of each input to fit within context length. Returns error if false and context length is exceeded. Defaults to true"
+    ],
+    keep_alive: [
+      type: {:or, [:integer, :string]},
+      doc: "How long to keep the model loaded."
+    ],
+    options: [
+      type: {:map, {:or, [:atom, :string]}, :any},
+      doc:
+        "Additional advanced [model parameters](https://github.com/jmorganca/ollama/blob/main/docs/modelfile.md#valid-parameters-and-values)."
+    ]
+  )
+
+  @doc """
+  Generate embeddings from a model
+
+  ## Options
+
+  #{doc(:embed)}
+
+  ## Example
+
+      iex> Ollama.embed(client, [
+      ...>   model: "bge-m3:latest",
+      ...>   input: "Here is an article about llamas..."
+      ...> ])
+      {:ok, %{"embedding" => [
+        0.5670403838157654, 0.009260174818336964, 0.23178744316101074, -0.2916173040866852, -0.8924556970596313,
+        0.8785552978515625, -0.34576427936553955, 0.5742510557174683, -0.04222835972905159, -0.137906014919281
+      ]}}
+  """
+  def embed(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:embed)) do
+      client
+      |> req(:post, "/embed", json: Enum.into(params, %{}))
+      |> res()
+    end
+  end
 
   # Builds the request from the given params
   @spec req(client(), atom(), Req.url(), keyword()) :: req_response()
@@ -902,7 +945,7 @@ defmodule Ollama do
       stream_opt ->
         opts =
           opts
-          |> Keyword.update!(:json, & Map.put(&1, :stream, true))
+          |> Keyword.update!(:json, &Map.put(&1, :stream, true))
           |> Keyword.put(:into, stream_handler(dest))
 
         task = Task.async(fn -> req |> Req.request(opts) |> res() end)
@@ -913,7 +956,7 @@ defmodule Ollama do
         end
 
       Keyword.get(opts, :json) |> is_map() ->
-        opts = Keyword.update!(opts, :json, & Map.put(&1, :stream, false))
+        opts = Keyword.update!(opts, :json, &Map.put(&1, :stream, false))
         Req.request(req, opts)
 
       true ->
@@ -958,14 +1001,17 @@ defmodule Ollama do
   # Conditionally merges streaming responses for chat and completion endpoints
   @spec stream_merge(Req.Response.t(), map()) :: Req.Response.t()
   defp stream_merge(%Req.Response{body: body} = res, %{"done" => _} = data)
-    when is_map(body)
-  do
+       when is_map(body) do
     update_in(res.body, fn body ->
       Map.merge(body, data, fn
-        "response", prev, next -> prev <> next
+        "response", prev, next ->
+          prev <> next
+
         "message", prev, next ->
-          update_in(prev, ["content"], & &1 <> next["content"])
-        _key, _prev, next -> next
+          update_in(prev, ["content"], &(&1 <> next["content"]))
+
+        _key, _prev, next ->
+          next
       end)
     end)
   end
@@ -996,5 +1042,4 @@ defmodule Ollama do
 
   # Tidy up when the streaming request is finished
   defp stream_end(%Task{ref: ref}), do: Process.demonitor(ref, [:flush])
-
 end

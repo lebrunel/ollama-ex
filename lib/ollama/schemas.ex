@@ -40,5 +40,4 @@ defmodule Ollama.Schemas do
       Keyword.fetch!(@schemas, unquote(key))
     end
   end
-
 end

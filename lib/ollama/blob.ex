@@ -31,5 +31,4 @@ defmodule Ollama.Blob do
     digest = :crypto.hash(:sha256, blob) |> Base.encode16(case: :lower)
     "sha256:" <> digest
   end
-
 end

@@ -41,7 +41,7 @@ defmodule Ollama.MixProject do
       {:jason, "~> 1.4"},
       {:nimble_options, "~> 1.1"},
       {:plug, "~> 1.16"},
-      {:req, "~> 0.5"},
+      {:req, "~> 0.5"}
     ]
   end
 

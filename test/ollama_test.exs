@@ -32,10 +32,14 @@ defmodule OllamaTest do
     end
 
     test "client with merged headers" do
-      client = Ollama.init(headers: [
-        {"User-Agent", "testing"},
-        {"X-Test", "testing"},
-      ])
+      client =
+        Ollama.init(
+          headers: [
+            {"User-Agent", "testing"},
+            {"X-Test", "testing"}
+          ]
+        )
+
       assert "http://localhost:11434/api" = client.req.options.base_url
       assert %{"user-agent" => ["testing"], "x-test" => ["testing"]} = client.req.headers
     end
@@ -43,87 +47,103 @@ defmodule OllamaTest do
 
   describe "chat2" do
     test "generates a response for a given prompt", %{client: client} do
-      assert {:ok, res} = Ollama.chat(client, [
-        model: "llama2",
-        messages: [
-          %{role: "user", content: "Why is the sky blue?"}
-        ],
-      ])
+      assert {:ok, res} =
+               Ollama.chat(client,
+                 model: "llama2",
+                 messages: [
+                   %{role: "user", content: "Why is the sky blue?"}
+                 ]
+               )
+
       assert res["done"]
       assert res["model"] == "llama2"
       assert is_map(res["message"])
     end
 
     test "streams a response for a given prompt", %{client: client} do
-      assert {:ok, stream} = Ollama.chat(client, [
-        model: "llama2",
-        messages: [
-          %{role: "user", content: "Why is the sky blue?"}
-        ],
-        stream: true,
-      ])
+      assert {:ok, stream} =
+               Ollama.chat(client,
+                 model: "llama2",
+                 messages: [
+                   %{role: "user", content: "Why is the sky blue?"}
+                 ],
+                 stream: true
+               )
+
       res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("done")
     end
 
     test "returns error when model not found", %{client: client} do
-      assert {:error, %HTTPError{status: 404}} = Ollama.chat(client, [
-        model: "not-found",
-        messages: [
-          %{role: "user", content: "Why is the sky blue?"}
-        ],
-      ])
+      assert {:error, %HTTPError{status: 404}} =
+               Ollama.chat(client,
+                 model: "not-found",
+                 messages: [
+                   %{role: "user", content: "Why is the sky blue?"}
+                 ]
+               )
     end
   end
 
   describe "completion/2" do
     test "generates a response for a given prompt", %{client: client} do
-      assert {:ok, res} = Ollama.completion(client, [
-        model: "llama2",
-        prompt: "Why is the sky blue?",
-      ])
+      assert {:ok, res} =
+               Ollama.completion(client,
+                 model: "llama2",
+                 prompt: "Why is the sky blue?"
+               )
+
       assert res["done"]
       assert res["model"] == "llama2"
       assert is_binary(res["response"])
     end
 
     test "streams a response for a given prompt", %{client: client} do
-      assert {:ok, stream} = Ollama.completion(client, [
-        model: "llama",
-        prompt: "Why is the sky blue?",
-        stream: true,
-      ])
+      assert {:ok, stream} =
+               Ollama.completion(client,
+                 model: "llama",
+                 prompt: "Why is the sky blue?",
+                 stream: true
+               )
+
       res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("done")
     end
 
     test "returns error when model not found", %{client: client} do
-      assert {:error, %HTTPError{status: 404}} = Ollama.completion(client, [
-        model: "not-found",
-        prompt: "Why is the sky blue?",
-      ])
+      assert {:error, %HTTPError{status: 404}} =
+               Ollama.completion(client,
+                 model: "not-found",
+                 prompt: "Why is the sky blue?"
+               )
     end
   end
 
   describe "create_model2" do
     test "creates a model from the params", %{client: client} do
       modelfile = "FROM elena:latest\nSYSTEM \"You are mario from Super Mario Bros.\""
-      assert {:ok, res} = Ollama.create_model(client, [
-        name: "mario",
-        modelfile: modelfile,
-      ])
+
+      assert {:ok, res} =
+               Ollama.create_model(client,
+                 name: "mario",
+                 modelfile: modelfile
+               )
+
       assert res["status"] == "success"
     end
 
     test "creates a model from the params and streams the response", %{client: client} do
       modelfile = "FROM elena:latest\nSYSTEM \"You are mario from Super Mario Bros.\""
-      assert {:ok, stream} = Ollama.create_model(client, [
-        name: "mario",
-        modelfile: modelfile,
-        stream: true,
-      ])
+
+      assert {:ok, stream} =
+               Ollama.create_model(client,
+                 name: "mario",
+                 modelfile: modelfile,
+                 stream: true
+               )
+
       res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("status") == "success"
@@ -134,6 +154,7 @@ defmodule OllamaTest do
     test "lists models that are available", %{client: client} do
       assert {:ok, %{"models" => models}} = Ollama.list_models(client)
       assert is_list(models)
+
       for model <- models do
         assert is_binary(model["name"])
         assert is_binary(model["digest"])
@@ -147,6 +168,7 @@ defmodule OllamaTest do
     test "lists models that are running", %{client: client} do
       assert {:ok, %{"models" => models}} = Ollama.list_running(client)
       assert is_list(models)
+
       for model <- models do
         assert is_binary(model["name"])
         assert is_binary(model["digest"])
@@ -173,17 +195,19 @@ defmodule OllamaTest do
 
   describe "copy_model/2" do
     test "shows true if copied", %{client: client} do
-      assert {:ok, true} = Ollama.copy_model(client, [
-        source: "llama2",
-        destination: "llama2-copy",
-      ])
+      assert {:ok, true} =
+               Ollama.copy_model(client,
+                 source: "llama2",
+                 destination: "llama2-copy"
+               )
     end
 
     test "shows false if model not found", %{client: client} do
-      assert {:ok, false} = Ollama.copy_model(client, [
-        source: "not-found",
-        destination: "llama2-copy",
-      ])
+      assert {:ok, false} =
+               Ollama.copy_model(client,
+                 source: "not-found",
+                 destination: "llama2-copy"
+               )
     end
   end
 
@@ -204,10 +228,12 @@ defmodule OllamaTest do
     end
 
     test "pulls the given model and streams the response", %{client: client} do
-      assert {:ok, stream} = Ollama.pull_model(client, [
-        name: "llama2",
-        stream: true,
-      ])
+      assert {:ok, stream} =
+               Ollama.pull_model(client,
+                 name: "llama2",
+                 stream: true
+               )
+
       res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("status") == "success"
@@ -221,10 +247,12 @@ defmodule OllamaTest do
     end
 
     test "pushes the given model and streams the response", %{client: client} do
-      assert {:ok, stream} = Ollama.push_model(client, [
-        name: "mattw/pygmalion:latest",
-        stream: true,
-      ])
+      assert {:ok, stream} =
+               Ollama.push_model(client,
+                 name: "mattw/pygmalion:latest",
+                 stream: true
+               )
+
       res = Enum.to_list(stream)
       assert is_list(res)
       assert List.last(res) |> Map.get("status") == "success"
@@ -233,7 +261,11 @@ defmodule OllamaTest do
 
   describe "check_blob/2" do
     test "returns true if a digest exists", %{client: client} do
-      assert {:ok, true} = Ollama.check_blob(client, "sha256:cd58120326971c71c0590f6b7084a0744e287ce9c67275d8b4bf34a5947d950b")
+      assert {:ok, true} =
+               Ollama.check_blob(
+                 client,
+                 "sha256:cd58120326971c71c0590f6b7084a0744e287ce9c67275d8b4bf34a5947d950b"
+               )
     end
 
     test "returns false if a digest doesn't exist", %{client: client} do
@@ -241,43 +273,47 @@ defmodule OllamaTest do
     end
 
     test "optionally receives a raw blob over a digest", %{client: client} do
-      assert {:ok, false} = Ollama.check_blob(client, <<0,1,2,3>>)
+      assert {:ok, false} = Ollama.check_blob(client, <<0, 1, 2, 3>>)
     end
   end
 
   describe "create_blob/2" do
     test "creates a blob for the given binary data", %{client: client} do
-      assert {:ok, true} = Ollama.create_blob(client, <<0,1,2,3>>)
+      assert {:ok, true} = Ollama.create_blob(client, <<0, 1, 2, 3>>)
     end
   end
 
   describe "embeddings/2" do
     test "generates an embedding for a given prompt", %{client: client} do
-      assert {:ok, res} = Ollama.embeddings(client, [
-        model: "llama2",
-        prompt: "Why is the sky blue?",
-      ])
+      assert {:ok, res} =
+               Ollama.embeddings(client,
+                 model: "llama2",
+                 prompt: "Why is the sky blue?"
+               )
+
       assert is_list(res["embedding"])
       assert length(res["embedding"]) == 10
     end
 
     test "returns error when model not found", %{client: client} do
-      assert {:error, %HTTPError{status: 404}} = Ollama.embeddings(client, [
-        model: "not-found",
-        prompt: "Why is the sky blue?",
-      ])
+      assert {:error, %HTTPError{status: 404}} =
+               Ollama.embeddings(client,
+                 model: "not-found",
+                 prompt: "Why is the sky blue?"
+               )
     end
   end
 
   describe "streaming" do
     test "with stream: true, returns a lazy enumerable", %{client: client} do
-      assert {:ok, stream} = Ollama.chat(client, [
-        model: "llama2",
-        messages: [
-          %{role: "user", content: "Why is the sky blue?"}
-        ],
-        stream: true,
-      ])
+      assert {:ok, stream} =
+               Ollama.chat(client,
+                 model: "llama2",
+                 messages: [
+                   %{role: "user", content: "Why is the sky blue?"}
+                 ],
+                 stream: true
+               )
 
       assert is_function(stream, 2)
       assert Enum.to_list(stream) |> length() == 3
@@ -285,13 +321,15 @@ defmodule OllamaTest do
 
     test "with stream: pid, returns a task and sends messages to pid", %{client: client} do
       {:ok, pid} = Ollama.StreamCatcher.start_link()
-      assert {:ok, task} = Ollama.chat(client, [
-        model: "llama2",
-        messages: [
-          %{role: "user", content: "Why is the sky blue?"}
-        ],
-        stream: pid,
-      ])
+
+      assert {:ok, task} =
+               Ollama.chat(client,
+                 model: "llama2",
+                 messages: [
+                   %{role: "user", content: "Why is the sky blue?"}
+                 ],
+                 stream: pid
+               )
 
       assert match?(%Task{}, task)
       assert {:ok, %{"message" => %{"content" => _}}} = Task.await(task)
@@ -303,28 +341,35 @@ defmodule OllamaTest do
   describe "using tools" do
     test "function calling roundtrip", %{client: client} do
       prompt = %{role: "user", content: "What is the current stock price for Apple?"}
+
       tools = [
-        %{type: "function", function: %{
-          name: "get_stock_price",
-          description: "Fetches the live stock price for the given ticker.",
-          parameters: %{
-            type: "object",
-            properties: %{
-              ticker: %{
-                type: "string",
-                description: "The stock ticker to fetch the price of."
-              }
-            },
-            required: ["ticker"],
+        %{
+          type: "function",
+          function: %{
+            name: "get_stock_price",
+            description: "Fetches the live stock price for the given ticker.",
+            parameters: %{
+              type: "object",
+              properties: %{
+                ticker: %{
+                  type: "string",
+                  description: "The stock ticker to fetch the price of."
+                }
+              },
+              required: ["ticker"]
+            }
           }
-        }}
+        }
       ]
+
       # Initial prompt
-      assert {:ok, res} = Ollama.chat(client, [
-        model: "mistral-nemo",
-        messages: [prompt],
-        tools: tools,
-      ])
+      assert {:ok, res} =
+               Ollama.chat(client,
+                 model: "mistral-nemo",
+                 messages: [prompt],
+                 tools: tools
+               )
+
       tool_calls = get_in(res, ["message", "tool_calls"])
       assert is_list(tool_calls)
       assert get_in(hd(tool_calls), ["function", "name"]) == "get_stock_price"
@@ -337,13 +382,15 @@ defmodule OllamaTest do
       ]
 
       # Tool result prompt
-      assert {:ok, res} = Ollama.chat(client, [
-        model: "mistral-nemo",
-        messages: messages,
-        tools: tools,
-      ])
-      assert get_in(res, ["message", "content"]) == "The current stock price for Apple (AAPL) is approximately $1568.12."
+      assert {:ok, res} =
+               Ollama.chat(client,
+                 model: "mistral-nemo",
+                 messages: messages,
+                 tools: tools
+               )
+
+      assert get_in(res, ["message", "content"]) ==
+               "The current stock price for Apple (AAPL) is approximately $1568.12."
     end
   end
-
 end

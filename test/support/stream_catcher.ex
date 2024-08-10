@@ -23,5 +23,4 @@ defmodule Ollama.StreamCatcher do
   def handle_info({_from, {:data, data}}, state) do
     {:noreply, [data | state]}
   end
-
 end

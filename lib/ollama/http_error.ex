@@ -4,9 +4,9 @@ defmodule Ollama.HTTPError do
 
   @impl true
   def exception(status) do
-    struct(__MODULE__, [
+    struct(__MODULE__,
       status: status,
-      message: Plug.Conn.Status.reason_phrase(status),
-    ])
+      message: Plug.Conn.Status.reason_phrase(status)
+    )
   end
 end
