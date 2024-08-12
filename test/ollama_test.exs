@@ -251,6 +251,39 @@ defmodule OllamaTest do
     end
   end
 
+  describe "embed/1" do
+    test "generates an embedding for a given input", %{client: client} do
+      assert {:ok, res} = Ollama.embed(client, [
+        model: "nomic-embed-text",
+        input: "Why is the sky blue?",
+      ])
+
+      assert res["model"] == "nomic-embed-text"
+      assert is_list(res["embeddings"])
+      assert length(res["embeddings"]) == 1
+      assert Enum.all?(res["embeddings"], &is_list/1)
+    end
+
+    test "generates an embedding for a list of input texts", %{client: client} do
+      assert {:ok, res} = Ollama.embed(client, [
+        model: "nomic-embed-text",
+        input: ["Why is the sky blue?", "Why is the grass green?"],
+      ])
+
+      assert res["model"] == "nomic-embed-text"
+      assert is_list(res["embeddings"])
+      assert length(res["embeddings"]) == 2
+      assert Enum.all?(res["embeddings"], &is_list/1)
+    end
+
+    test "returns error when model not found", %{client: client} do
+      assert {:error, %HTTPError{status: 404}} = Ollama.embed(client, [
+        model: "not-found",
+        input: "Why is the sky blue?",
+      ])
+    end
+  end
+
   describe "embeddings/2" do
     test "generates an embedding for a given prompt", %{client: client} do
       assert {:ok, res} = Ollama.embeddings(client, [

@@ -172,6 +172,42 @@ defmodule Ollama.MockServer do
     }
     """,
 
+    # truncated for simplicity
+    embed_one: """
+    {
+      "embeddings": [
+        [
+          0.009724553, 0.04449892, -0.14063916, 0.0013168337, 0.032128844,
+          0.10730086, -0.008447222, 0.010106917, 5.2289694e-4, -0.03554127
+        ]
+      ],
+      "load_duration": 1881917,
+      "model": "nomic-embed-text",
+      "prompt_eval_count": 8,
+      "total_duration": 48675959
+    }
+    """,
+
+    # truncated for simplicity
+    embed_many: """
+    {
+      "embeddings": [
+        [
+          0.009724553, 0.04449892, -0.14063916, 0.0013168337, 0.032128844,
+          0.10730086, -0.008447222, 0.010106917, 5.2289694e-4, -0.03554127
+        ],
+        [
+          0.028196355, 0.043162502, -0.18592504, 0.035034444, 0.055619627,
+          0.12082449, -0.0090096295, 0.047170386, -0.032078084, 0.0047163847
+        ]
+      ],
+      "load_duration": 1902709,
+      "model": "nomic-embed-text",
+      "prompt_eval_count": 16,
+      "total_duration": 53473292
+    }
+    """,
+
     embeddings: """
     {
       "embedding": [
@@ -338,6 +374,14 @@ defmodule Ollama.MockServer do
 
   post "/blobs/:digest", do: respond(conn, 200)
   post "/embeddings", do: handle_request(conn, :embeddings)
+
+  post "/embed" do
+    case conn.body_params do
+      %{"model" => "not-found"} -> respond(conn, 404)
+      %{"input" => input} when is_binary(input) -> respond(conn, :embed_one)
+      %{"input" => input} when is_list(input) > 1 -> respond(conn, :embed_many)
+    end
+  end
 
   defp handle_request(conn, name) do
     case conn.body_params do
