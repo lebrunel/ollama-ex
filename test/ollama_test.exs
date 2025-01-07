@@ -41,7 +41,7 @@ defmodule OllamaTest do
     end
   end
 
-  describe "chat2" do
+  describe "chat/2" do
     test "generates a response for a given prompt", %{client: client} do
       assert {:ok, res} = Ollama.chat(client, [
         model: "llama2",
@@ -52,6 +52,29 @@ defmodule OllamaTest do
       assert res["done"]
       assert res["model"] == "llama2"
       assert is_map(res["message"])
+    end
+
+    test "generates a structured response", %{client: client} do
+      assert {:ok, res} = Ollama.chat(client, [
+        model: "llama3.1",
+        messages: [
+          %{role: "user", content: "Tell me about Canada."}
+        ],
+        format: %{
+          type: "object",
+          properties: %{
+            name: %{type: "string"},
+            capital: %{type: "string"},
+            languages: %{type: "array", items: %{type: "string"}},
+          },
+          required: ["name", "capital", "languages"]
+        }
+      ])
+      assert get_in(res, ["message", "content"]) |> is_binary()
+      assert {:ok, obj} = Jason.decode(get_in(res, ["message", "content"]))
+      assert obj["name"] == "Canada"
+      assert obj["capital"] == "Ottawa"
+      assert obj["languages"] == ["English", "French"]
     end
 
     test "streams a response for a given prompt", %{client: client} do
@@ -86,6 +109,27 @@ defmodule OllamaTest do
       assert res["done"]
       assert res["model"] == "llama2"
       assert is_binary(res["response"])
+    end
+
+    test "generates a structured response", %{client: client} do
+      assert {:ok, res} = Ollama.completion(client, [
+        model: "llama3.1",
+        prompt: "Tell me about Canada.",
+        format: %{
+          type: "object",
+          properties: %{
+            name: %{type: "string"},
+            capital: %{type: "string"},
+            languages: %{type: "array", items: %{type: "string"}},
+          },
+          required: ["name", "capital", "languages"]
+        }
+      ])
+      assert is_binary(res["response"])
+      assert {:ok, obj} = Jason.decode(res["response"])
+      assert obj["name"] == "Canada"
+      assert obj["capital"] == "Ottawa"
+      assert obj["languages"] == ["English", "French"]
     end
 
     test "streams a response for a given prompt", %{client: client} do

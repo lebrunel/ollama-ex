@@ -36,6 +36,42 @@ defmodule Ollama.MockServer do
     }
     """,
 
+    completion_structured: """
+    {
+      "context": [1, 2, 3],
+      "created_at": "2025-01-07T22:26:31.802663Z",
+      "done": true,
+      "done_reason": "stop",
+      "eval_count": 34,
+      "eval_duration": 2009000000,
+      "load_duration": 821921500,
+      "model": "llama3.1",
+      "prompt_eval_count": 15,
+      "prompt_eval_duration": 1819000000,
+      "response": "{ \\"name\\" : \\"Canada\\", \\"capital\\": \\"Ottawa\\", \\"languages\\" : [\\"English\\", \\"French\\"] }",
+      "total_duration": 4652893375
+    }
+    """,
+
+    chat_structured: """
+    {
+      "created_at": "2025-01-07T21:54:27.286428Z",
+      "done": true,
+      "done_reason": "stop",
+      "eval_count": 30,
+      "eval_duration": 1709000000,
+      "load_duration": 32905667,
+      "message": {
+        "content": "{ \\"name\\": \\"Canada\\" ,\\"capital\\": \\"Ottawa\\" ,\\"languages\\": [\\"English\\", \\"French\\"] }",
+        "role": "assistant"
+      },
+      "model": "llama3.1",
+      "prompt_eval_count": 15,
+      "prompt_eval_duration": 476000000,
+      "total_duration": 2219407417
+    }
+    """,
+
     tool_call: """
     {
       "created_at": "2024-07-26T19:52:04.834647Z",
@@ -341,8 +377,26 @@ defmodule Ollama.MockServer do
   plug Plug.Parsers, parsers: [:json], json_decoder: Jason
   plug :dispatch
 
-  post "/chat", do: handle_request(conn, :chat)
-  post "/generate", do: handle_request(conn, :completion)
+  post "/chat" do
+    case conn.body_params do
+      %{"model" => "llama3.1", "format" => fmt} when is_map(fmt) ->
+        respond(conn, :chat_structured)
+      %{"model" => "mistral-nemo", "messages" => msgs} when length(msgs) == 1 ->
+        respond(conn, :tool_call)
+      %{"model" => "mistral-nemo", "messages" => msgs} when length(msgs) > 1 ->
+        respond(conn, :tool_result)
+      _ -> handle_request(conn, :chat)
+    end
+  end
+
+  post "/generate" do
+    case conn.body_params do
+      %{"model" => "llama3.1", "format" => fmt} when is_map(fmt) ->
+        respond(conn, :completion_structured)
+      _ -> handle_request(conn, :completion)
+    end
+  end
+
   post "/create", do: handle_request(conn, :create_model)
   get "/tags", do: handle_request(conn, :list_models)
   get "/ps", do: handle_request(conn, :list_running)
@@ -387,10 +441,6 @@ defmodule Ollama.MockServer do
     case conn.body_params do
       %{"model" => "not-found"} -> respond(conn, 404)
       %{"name" => "not-found"} -> respond(conn, 404)
-      %{"model" => "mistral-nemo", "messages" => messages} when length(messages) == 1 ->
-        respond(conn, :tool_call)
-      %{"model" => "mistral-nemo", "messages" => messages} when length(messages) > 1 ->
-        respond(conn, :tool_result)
       %{"stream" => true} -> stream(conn, name)
       _ -> respond(conn, name)
     end

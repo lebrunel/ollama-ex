@@ -10,8 +10,11 @@ defmodule Ollama do
   interface for working with Ollama in Elixir.
 
   - 🦙 Full implementation of the Ollama API
-  - 🛜 Support for streaming requests (to an Enumerable or any Elixir process)
-  - 🛠️ Tool use (Function calling) capability
+  - 🧰 Tool use (function calling)
+  - 🧱 Structured outputs
+  - 🛜 Streaming requests
+    - Stream to an Enumerable
+    - Or stream messages to any Elixir process
 
   ## Installation
 
@@ -228,6 +231,8 @@ defmodule Ollama do
   }
 
 
+  @permissive_map {:map, {:or, [:atom, :string]}, :any}
+
   schema :chat_message, [
     role: [
       type: {:in, ["system", "user", "assistant", "tool"]},
@@ -244,7 +249,7 @@ defmodule Ollama do
       doc: "*(optional)* List of Base64 encoded images (for multimodal models only).",
     ],
     tool_calls: [
-      type: {:list, {:map, :any, :any}},
+      type: {:list, @permissive_map},
       doc: "*(optional)* List of tools the model wants to use."
     ]
   ]
@@ -278,7 +283,7 @@ defmodule Ollama do
           doc: "A description of what the function does."
         ],
         parameters: [
-          type: :map,
+          type: @permissive_map,
           required: true,
           doc: "The parameters the functions accepts.",
         ],
@@ -375,8 +380,8 @@ defmodule Ollama do
       doc: "Tools for the model to use if supported (requires `stream` to be `false`)",
     ],
     format: [
-      type: :string,
-      doc: "Set the expected format of the response (`json`).",
+      type: {:or, [:string, @permissive_map]},
+      doc: "Set the expected format of the response (`json` or JSON schema map).",
     ],
     stream: [
       type: {:or, [:boolean, :pid]},
@@ -475,8 +480,8 @@ defmodule Ollama do
       doc: "The context parameter returned from a previous `completion/2` call (enabling short conversational memory).",
     ],
     format: [
-      type: :string,
-      doc: "Set the expected format of the response (`json`).",
+      type: {:or, [:string, @permissive_map]},
+      doc: "Set the expected format of the response (`json` or JSON schema map).",
     ],
     raw: [
       type: :boolean,

@@ -9,8 +9,11 @@
 [Ollama](https://ollama.ai) is a powerful tool for running large language models locally or on your own infrastructure. This library provides an interface for working with Ollama in Elixir.
 
 - 🦙 Full implementation of the Ollama API
-- 🛜 Support for streaming requests (to an Enumerable or any Elixir process)
-- 🛠️ Tool use (Function calling) capability
+- 🧰 Tool use (function calling)
+- 🧱 Structured outputs
+- 🛜 Streaming requests
+  - Stream to an Enumerable
+  - Or stream messages to any Elixir process
 
 ## Installation
 
