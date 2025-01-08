@@ -46,22 +46,40 @@ Ollama.completion(client, [
 ### 2. Generate the next message in a chat
 
 ```elixir
-client = Ollama.init()
-messages = [
-  %{role: "system", content: "You are a helpful assistant."},
-  %{role: "user", content: "Why is the sky blue?"},
-  %{role: "assistant", content: "Due to rayleigh scattering."},
-  %{role: "user", content: "How is that different than mie scattering?"},
-]
-
 Ollama.chat(client, [
   model: "llama2",
-  messages: messages,
+  messages: [
+    %{role: "system", content: "You are a helpful assistant."},
+    %{role: "user", content: "Why is the sky blue?"},
+    %{role: "assistant", content: "Due to rayleigh scattering."},
+    %{role: "user", content: "How is that different than mie scattering?"},
+  ]
 ])
 # {:ok, %{"message" => %{
 #   "role" => "assistant",
 #   "content" => "Mie scattering affects all wavelengths similarly, while Rayleigh favors shorter ones."
 # }, ...}}
+```
+
+### 3. Generate structured data
+
+The `:format` option can be used with both `completion/2` and `chat/2`.
+
+```elixir
+Ollama.completion(client, [
+  model: "llama3.1",
+  prompt: "Tell me about Canada",
+  format: %{
+    type: "object",
+    properties: %{
+      name: %{type: "string"},
+      capital: %{type: "string"},
+      languages: %{type: "array", items: %{type: "string"}},
+    },
+    required: ["name", "capital", "languages"]
+  }
+])
+# {:ok, %{"response" => "{ \"name\": \"Canada\" ,\"capital\": \"Ottawa\" ,\"languages\": [\"English\", \"French\"] }", ...}}
 ```
 
 ## Streaming

@@ -67,6 +67,27 @@ defmodule Ollama do
   }, ...}}
   ```
 
+  ### 3. Generate structured data
+
+  The `:format` option can be used with both `completion/2` and `chat/2`.
+
+  ```elixir
+  Ollama.completion(client, [
+    model: "llama3.1",
+    prompt: "Tell me about Canada",
+    format: %{
+      type: "object",
+      properties: %{
+        name: %{type: "string"},
+        capital: %{type: "string"},
+        languages: %{type: "array", items: %{type: "string"}},
+      },
+      required: ["name", "capital", "languages"]
+    }
+  ])
+  # {:ok, %{"response" => "{ \\"name\\": \\"Canada\\" ,\\"capital\\": \\"Ottawa\\" ,\\"languages\\": [\\"English\\", \\"French\\"] }", ...}}
+  ```
+
   ## Streaming
 
   Streaming is supported on certain endpoints by setting the `:stream` option to
