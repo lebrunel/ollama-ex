@@ -201,6 +201,26 @@ defmodule OllamaTest do
     end
   end
 
+  describe "preload/1" do
+    test "loads a model into memory", %{client: client} do
+      assert {:ok, true} = Ollama.preload(client, model: "llama3.1")
+    end
+
+    test "returns false when model not found", %{client: client} do
+      assert {:ok, false} = Ollama.preload(client, model: "not-found")
+    end
+  end
+
+  describe "unload/1" do
+    test "unloads a model from memory", %{client: client} do
+      assert {:ok, true} = Ollama.unload(client, model: "llama3.1")
+    end
+
+    test "returns false when model not found", %{client: client} do
+      assert {:ok, false} = Ollama.preload(client, model: "not-found")
+    end
+  end
+
   describe "show_model/2" do
     test "shows information about a model", %{client: client} do
       assert {:ok, model} = Ollama.show_model(client, name: "llama2")

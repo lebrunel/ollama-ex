@@ -626,6 +626,63 @@ defmodule Ollama do
   end
 
 
+  schema :load_model, [
+    model: [
+      type: :string,
+      required: true,
+      doc: "Name of the model to load.",
+    ],
+    keep_alive: [
+      type: {:or, [:integer, :string]},
+      doc: "How long to keep the model loaded.",
+    ],
+  ]
+
+  @doc """
+  Load a model into memory without generating a completion. Optionally specify
+  a keep alive value (defaults to 5 minutes, set `-1` to permanently keep alive).
+
+  ## Options
+
+  #{doc(:load_model)}
+
+  ## Example
+
+      iex> Ollama.preload(client, model: "llama3.1", timeout: 3_600_000)
+      true
+  """
+  @spec preload(client(), keyword()) :: response()
+  def preload(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:load_model)) do
+      client
+      |> req(:post, "/generate", json: Enum.into(params, %{}))
+      |> res_bool()
+    end
+  end
+
+  @doc """
+  Stops a running model and unloads it from memory.
+
+  ## Options
+
+  - `:model` (`t:String.t/0`) - Required. Name of the model to unload.
+
+  ## Example
+
+      iex> Ollama.preload(client, model: "llama3.1")
+      true
+  """
+  @spec unload(client(), keyword()) :: response()
+  def unload(%__MODULE__{} = client, params) when is_list(params) do
+    with {:ok, params} <- NimbleOptions.validate(params, schema(:load_model)) do
+      params = Keyword.put(params, :keep_alive, 0)
+      client
+      |> req(:post, "/generate", json: Enum.into(params, %{}))
+      |> res_bool()
+    end
+  end
+
+
   schema :show_model, [
     name: [
       type: :string,

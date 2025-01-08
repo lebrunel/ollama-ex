@@ -391,7 +391,7 @@ defmodule Ollama.MockServer do
 
   post "/generate" do
     case conn.body_params do
-      %{"model" => "llama3.1", "format" => fmt} when is_map(fmt) ->
+      %{"format" => fmt} when is_map(fmt) ->
         respond(conn, :completion_structured)
       _ -> handle_request(conn, :completion)
     end
