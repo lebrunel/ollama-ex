@@ -409,6 +409,11 @@ defmodule Ollama do
       default: false,
       doc: "See [section on streaming](#module-streaming).",
     ],
+    think: [
+      type: :boolean,
+      default: false,
+      doc: "Set `true` to have the model think step-by-step.",
+    ],
     keep_alive: [
       type: {:or, [:integer, :string]},
       doc: "How long to keep the model loaded.",
@@ -512,6 +517,11 @@ defmodule Ollama do
       type: {:or, [:boolean, :pid]},
       default: false,
       doc: "See [section on streaming](#module-streaming).",
+      ],
+    think: [
+      type: :boolean,
+      default: false,
+      doc: "Set `true` to have the model think step-by-step.",
     ],
     keep_alive: [
       type: {:or, [:integer, :string]},
