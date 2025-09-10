@@ -10,6 +10,7 @@ defmodule Ollama do
   interface for working with Ollama in Elixir.
 
   - 🦙 Full implementation of the Ollama API
+  - 🧠 Extended thinking
   - 🧰 Tool use (function calling)
   - 🧱 Structured outputs
   - 🛜 Streaming requests

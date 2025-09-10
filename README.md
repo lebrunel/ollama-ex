@@ -9,6 +9,7 @@
 [Ollama](https://ollama.ai) is a powerful tool for running large language models locally or on your own infrastructure. This library provides an interface for working with Ollama in Elixir.
 
 - 🦙 Full implementation of the Ollama API
+- 🧠 Extended thinking
 - 🧰 Tool use (function calling)
 - 🧱 Structured outputs
 - 🛜 Streaming requests
@@ -22,7 +23,7 @@ The package can be installed by adding `ollama` to your list of dependencies in 
 ```elixir
 def deps do
   [
-    {:ollama, "~> 0.8"}
+    {:ollama, "~> 0.9"}
   ]
 end
 ```
