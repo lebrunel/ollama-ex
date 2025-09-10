@@ -517,7 +517,7 @@ defmodule Ollama do
       type: {:or, [:boolean, :pid]},
       default: false,
       doc: "See [section on streaming](#module-streaming).",
-      ],
+    ],
     think: [
       type: :boolean,
       default: false,
@@ -1113,7 +1113,16 @@ defmodule Ollama do
       Map.merge(body, data, fn
         "response", prev, next -> prev <> next
         "message", prev, next ->
-          update_in(prev, ["content"], & &1 <> next["content"])
+          acc = update_in(prev, ["content"], & &1 <> next["content"])
+
+          if Map.has_key?(prev, "thinking") and Map.has_key?(next, "thinking") do
+            update_in(acc, ["thinking"], & &1 <> next["thinking"])
+          else
+            acc
+          end
+          #Enum.reduce(["content", "thinking"], prev, fn key, acc ->
+          #  update_in(acc, [key], & &1 <> Map.get(next, key, ""))
+          #end)
         _key, _prev, next -> next
       end)
     end)

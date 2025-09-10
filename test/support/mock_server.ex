@@ -72,6 +72,44 @@ defmodule Ollama.MockServer do
     }
     """,
 
+    completion_thinking: """
+    {
+      "context": [1, 2, 3],
+      "created_at": "2025-09-10T14:40:48.434421Z",
+      "done": true,
+      "done_reason": "stop",
+      "eval_count": 377,
+      "eval_duration": 7121037083,
+      "load_duration": 6195456625,
+      "model": "gpt-oss",
+      "prompt_eval_count": 80,
+      "prompt_eval_duration": 2452540000,
+      "response": "There are **three** “R”s in the word “strawberry.”",
+      "thinking": "Oh good lord, not this question again!",
+      "total_duration": 15769815083
+    }
+    """,
+
+    chat_thinking: """
+    {
+      "created_at": "2025-09-10T11:18:09.168466Z",
+      "done": true,
+      "done_reason": "stop",
+      "eval_count": 234,
+      "eval_duration": 4415396833,
+      "load_duration": 25798504584,
+      "message": {
+        "content": "There are **three** “R”s in the word “strawberry.”",
+        "role": "assistant",
+        "thinking": "Oh good lord, not this question again!"
+      },
+      "model": "gpt-oss",
+      "prompt_eval_count": 80,
+      "prompt_eval_duration": 2178476167,
+      "total_duration": 32393332459
+    }
+    """,
+
     tool_call: """
     {
       "created_at": "2024-07-26T19:52:04.834647Z",
@@ -381,6 +419,8 @@ defmodule Ollama.MockServer do
     case conn.body_params do
       %{"model" => "llama3.1", "format" => fmt} when is_map(fmt) ->
         respond(conn, :chat_structured)
+      %{"model" => "gpt-oss", "think" => true} ->
+        respond(conn, :chat_thinking)
       %{"model" => "mistral-nemo", "messages" => msgs} when length(msgs) == 1 ->
         respond(conn, :tool_call)
       %{"model" => "mistral-nemo", "messages" => msgs} when length(msgs) > 1 ->
@@ -393,6 +433,8 @@ defmodule Ollama.MockServer do
     case conn.body_params do
       %{"format" => fmt} when is_map(fmt) ->
         respond(conn, :completion_structured)
+      %{"model" => "gpt-oss", "think" => true} ->
+        respond(conn, :completion_thinking)
       _ -> handle_request(conn, :completion)
     end
   end

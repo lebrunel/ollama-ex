@@ -54,6 +54,17 @@ defmodule OllamaTest do
       assert is_map(res["message"])
     end
 
+    test "generates a response with thinking", %{client: client} do
+      assert {:ok, res} = Ollama.chat(client, [
+        model: "gpt-oss",
+        messages: [
+          %{role: "user", content: "How many Rs are there in the word 'strawberry'?"}
+        ],
+        think: true
+      ])
+      assert get_in(res, ["message", "thinking"]) |> is_binary()
+    end
+
     test "generates a structured response", %{client: client} do
       assert {:ok, res} = Ollama.chat(client, [
         model: "llama3.1",
@@ -109,6 +120,15 @@ defmodule OllamaTest do
       assert res["done"]
       assert res["model"] == "llama2"
       assert is_binary(res["response"])
+    end
+
+    test "generates a response with thinking", %{client: client} do
+      assert {:ok, res} = Ollama.completion(client, [
+        model: "gpt-oss",
+        prompt: "How many Rs are there in the word 'strawberry'?",
+        think: true
+      ])
+      assert is_binary(res["thinking"])
     end
 
     test "generates a structured response", %{client: client} do
